@@ -1,0 +1,16 @@
+
+@PACKAGE_INIT@
+
+######################################################################
+#
+# Packages
+#
+######################################################################
+find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets LinguistTools Network WinExtras)
+# glog::glog
+find_package(Glog REQUIRED)
+# OpenCV_LIBS
+find_package(OpenCV REQUIRED core imgproc calib3d ximgproc highgui imgcodecs features2d videoio flann)
+
+include("${CMAKE_CURRENT_LIST_DIR}/@TARGETS_EXPORT_NAME@.cmake")
+check_required_components("H2O")

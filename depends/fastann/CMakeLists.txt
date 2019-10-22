@@ -1,0 +1,12 @@
+if(H2O_BUILD_AVX)
+    add_definitions(-DFASTANN_HAS_AVX)
+    if(MSVC)
+        add_definitions(/arch:AVX2)
+    else()
+        add_definitions(-march=native)
+    endif(MSVC)
+endif(H2O_BUILD_AVX)
+
+add_definitions(-D__SSE__ -D__SSE2__)
+file(GLOB FASTANN_SRC "*.h" "*.hpp" "*.c" "*.cpp")
+add_library(fastann STATIC ${FASTANN_SRC})
