@@ -86,6 +86,8 @@ endif(H2O_BUILD_SHARED)
 # ArrayFire_OpenCL_LIBRARIES
 # find_package(ArrayFire REQUIRED OpenCL)
 
+find_package(OpenGL REQUIRED)
+
 # EIGEN3_INCLUDE_DIR
 find_package(Eigen3 REQUIRED)
 

@@ -15,7 +15,12 @@ struct Photo {
 
     Vector3d C;
     Matrix3d R;
+
+    double znear;
+    double zfar;
+    double zmed;
 };
+
 struct PhotoGroup {
     std::vector<uint32_t> photos;
     uint32_t width;
@@ -34,8 +39,17 @@ struct Block {
     PhotoGroups groups;
 };
 
+// load an xml block file
 Block load_block_xml(const std::string &path);
+
+// load a json block file
+Block load_block(const std::string &path);
+
+// save a block file in json format
 void save_block(const std::string &path, const Block &block);
+
+// remove the distortion of the cameras with a given undistorted image path
+Block undistort_block(const Block &block, const std::string &path = "");
 
 FrameCamera to_framecamera(const PhotoGroup &pgroups);
 } // namespace h2o
