@@ -43,30 +43,94 @@ struct ScreenShot : public osg::Camera::DrawCallback {
             std::string name = block_.photos.at(iid_).path;
             name = get_filename_noext(name);
 
-            glReadBuffer(camera->getDrawBuffer());
-            image->readPixels(viewport->x(), viewport->y(), viewport->width(), viewport->height(), GL_RGBA,
-                              GL_UNSIGNED_BYTE, 1);
+            cv::Mat mat_rgb;
+            cv::Mat mat_dep;
+            cv::Mat mat_xyz;
+            cv::Mat mat_nor;
 
+            // read the rgb value
             {
+                glReadBuffer(camera->getDrawBuffer());
+                image->readPixels(viewport->x(), viewport->y(), viewport->width(), viewport->height(), GL_RGBA,
+                                  GL_UNSIGNED_BYTE, 1);
                 image->flipVertical();
-                std::string path_rgba = join_paths(outdir_, name + "_rgba.png");
-                cv::Mat mat_rgba(viewport->height(), viewport->width(), CV_8UC4, (void *)image->getDataPointer(),
-                                 (size_t)image->getRowStepInBytes());
-                cv::cvtColor(mat_rgba, mat_rgba, cv::COLOR_RGBA2BGRA);
-                cv::imwrite(path_rgba, mat_rgba);
+                std::string path_rgba = join_paths(outdir_, name + "_rgb.png");
+                mat_rgb = cv::Mat(viewport->height(), viewport->width(), CV_8UC4, (void *)image->getDataPointer(),
+                                  (size_t)image->getRowStepInBytes())
+                              .clone();
+                cv::cvtColor(mat_rgb, mat_rgb, cv::COLOR_RGBA2BGRA);
+                cv::imwrite(path_rgba, mat_rgb);
             }
 
-            glReadBuffer(camera->getDrawBuffer());
-            image->readPixels(viewport->x(), viewport->y(), viewport->width(), viewport->height(), GL_DEPTH_COMPONENT,
-                              GL_FLOAT);
-
+            // read the depth value
             {
+                glReadBuffer(camera->getDrawBuffer());
+                image->readPixels(viewport->x(), viewport->y(), viewport->width(), viewport->height(),
+                                  GL_DEPTH_COMPONENT, GL_FLOAT);
                 image->flipVertical();
-                std::string path_depth = join_paths(outdir_, name + "_depth.tif");
-                cv::Mat mat_depth(viewport->height(), viewport->width(), CV_32FC1, (void *)image->getDataPointer(),
+                mat_dep = cv::Mat(viewport->height(), viewport->width(), CV_32FC1, (void *)image->getDataPointer(),
                                   (size_t)image->getRowStepInBytes());
-                cv::imwrite(path_depth, mat_depth);
+                std::string path_dep = join_paths(outdir_, name + "_dep.tif");
+                gdal_write_image(path_dep, mat_dep);
+                gdal_set_nodata(path_dep, 1.0);
+                gdal_compute_statistics(path_dep);
             }
+
+            // calculate the xyz for the depths value
+            {
+                mat_xyz = cv::Mat(mat_rgb.rows, mat_rgb.cols, CV_32FC3);
+                osg::Matrixd proj = camera->getProjectionMatrix();
+                osg::Matrixd view = camera->getViewMatrix();
+
+                Matrix4f eproj, eview;
+                for (int r = 0; r < 4; ++r) {
+                    for (int c = 0; c < 4; ++c) {
+                        eproj(r, c) = proj(c, r);
+                        eview(r, c) = view(c, r);
+                    }
+                }
+
+                Matrix4f inverse_mvp = (eproj * eview).inverse();
+                for (int r = 0; r < mat_rgb.rows; ++r) {
+                    float *ptr_dep = mat_dep.ptr<float>(r);
+                    cv::Vec3f *ptr_xyz = mat_xyz.ptr<cv::Vec3f>(r);
+                    for (int c = 0; c < mat_rgb.cols; ++c) {
+                        float depth = ptr_dep[c];
+                        if (std::abs(depth - 1.0) < 1e-4f) {
+                            ptr_xyz[c][0] = FLT_MAX;
+                            ptr_xyz[c][1] = FLT_MAX;
+                            ptr_xyz[c][2] = FLT_MAX;
+                            continue;
+                        }
+
+                        // image use the pixel center, but ogl maps [0,1] to the image boarder
+                        Vector4f screen;
+                        screen(0) = (float)(c + 0.5f) / mat_rgb.cols;
+                        screen(1) = (float)(mat_rgb.rows - r - 0.5) / mat_rgb.rows;
+                        screen(2) = depth;
+                        screen(3) = 1.0;
+
+                        screen = screen.array() * 2.0f - 1.0f;
+
+                        Vector4f object = inverse_mvp * screen;
+                        Vector3f coord = object.hnormalized();
+
+                        ptr_xyz[c][0] = coord.x();
+                        ptr_xyz[c][1] = coord.y();
+                        ptr_xyz[c][2] = coord.z();
+                    }
+                }
+
+                std::string path_xyz = join_paths(outdir_, name + "_xyz.tif");
+                gdal_write_image(path_xyz, mat_xyz);
+                gdal_set_nodata(path_xyz, FLT_MAX);
+                gdal_compute_statistics(path_xyz);
+            }
+
+            // calculate the normal vector, because it's not possible to write shader for it
+            // and fixed osg pipeline (with osgb file) does not support this
+            // we calculate it in CPU from the points here
+            {}
         }
     }
 
