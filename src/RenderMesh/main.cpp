@@ -27,10 +27,17 @@ struct ScreenShot : public osg::Camera::DrawCallback {
     ScreenShot(const h2o::Block &block) : block_(block) {
         iid_ = INVALID_INDEX;
         outdir_ = "";
+        save_rgb_ = save_dep_ = save_xyz_ = save_nor_ = true;
     }
 
     void set_iid(uint32_t iid) { iid_ = iid; }
     void set_outdir(const std::string &dir) { outdir_ = dir; }
+    void set_export(bool rgb, bool dep = false, bool xyz = false, bool nor = false) {
+        save_rgb_ = rgb;
+        save_dep_ = dep;
+        save_xyz_ = xyz;
+        save_nor_ = nor;
+    }
 
     virtual void operator()(osg::RenderInfo &renderInfo) const {
         if (iid_ == INVALID_INDEX) {
@@ -54,7 +61,7 @@ struct ScreenShot : public osg::Camera::DrawCallback {
             cv::Mat mat_nor;
 
             // read the rgb value
-            {
+            if (save_rgb_) {
                 glReadBuffer(camera->getDrawBuffer());
                 image->readPixels(viewport->x(), viewport->y(), viewport->width(), viewport->height(), GL_RGBA,
                                   GL_UNSIGNED_BYTE, 1);
@@ -68,7 +75,7 @@ struct ScreenShot : public osg::Camera::DrawCallback {
             }
 
             // read the depth value
-            {
+            if (save_dep_) {
                 glReadBuffer(camera->getDrawBuffer());
                 image->readPixels(viewport->x(), viewport->y(), viewport->width(), viewport->height(),
                                   GL_DEPTH_COMPONENT, GL_FLOAT);
@@ -83,7 +90,7 @@ struct ScreenShot : public osg::Camera::DrawCallback {
 
             // calculate the xyz for the depths value
             // this is only for demonstration, in applications, we never directly calculate the xyz and normal images
-            {
+            if (save_dep_ && save_xyz_) {
                 mat_xyz = cv::Mat(mat_rgb.rows, mat_rgb.cols, CV_32FC3);
                 osg::Matrixd proj = camera->getProjectionMatrix();
                 osg::Matrixd view = camera->getViewMatrix();
@@ -135,7 +142,7 @@ struct ScreenShot : public osg::Camera::DrawCallback {
 
             // calculate the normal vector, because it's not possible without writing shader for it
             // we calculate it in CPU from the points here
-            {
+            if (save_dep_ && save_xyz_ && save_nor_) {
                 mat_nor = pcd_normal(mat_xyz, Vector2i(mat_xyz.cols / 2, mat_xyz.rows / 2));
                 // change the direction of normal vector
                 // normal vector should face the camera
@@ -173,6 +180,11 @@ struct ScreenShot : public osg::Camera::DrawCallback {
     h2o::Block block_;
     uint32_t iid_;
     std::string outdir_;
+
+    bool save_rgb_;
+    bool save_dep_;
+    bool save_xyz_;
+    bool save_nor_;
 };
 
 int main(int argc, char **argv) {
@@ -182,11 +194,19 @@ int main(int argc, char **argv) {
     std::string path_model;
     std::string path_out;
 
+    bool save_rgb = true;
+    bool save_dep = true;
+    bool save_xyz = true;
+    bool save_nor = true;
+
     // clang-format off
     options.add_options("RenderMesh")
         ("a,atfile", "Input aerial triangulation file in block exchange format", cxxopts::value(path_at))
         ("m,mesh", "Input mesh file in osgb format", cxxopts::value(path_model))
         ("o,output", "Output directory containing all the rendered images", cxxopts::value(path_out))
+        ("no-dep", "Do not save depth data")
+        ("no-xyz", "Do not compute the xyz data")
+        ("no-nor", "Do not compute the normal vectors")
         ("h,help", "Print this help message");
     // clang-format on
 
@@ -194,6 +214,16 @@ int main(int argc, char **argv) {
     if (results.arguments().empty() || results.count("help")) {
         std::cout << options.help({"RenderMesh"}) << std::endl;
         return 1;
+    }
+
+    if (results.count("no-dep")) {
+        save_dep = false;
+    }
+    if (results.count("no-xyz")) {
+        save_xyz = false;
+    }
+    if (results.count("no-nor")) {
+        save_nor = false;
     }
 
     path_at = QFileInfo(QString::fromLocal8Bit(path_at.c_str())).absoluteFilePath().toStdString();
@@ -208,6 +238,7 @@ int main(int argc, char **argv) {
 
     osg::ref_ptr<ScreenShot> screen_shot = new ScreenShot(rectified);
     screen_shot->set_outdir(path_out);
+    screen_shot->set_export(save_rgb, save_dep, save_xyz, save_nor);
 
     osg::ref_ptr<osg::Node> model = osgDB::readRefNodeFile(path_model);
     viewer.setSceneData(model);
