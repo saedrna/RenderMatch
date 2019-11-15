@@ -14,10 +14,15 @@
 #include <osg/PagedLOD>
 #include <osgDB/DatabasePager>
 #include <osgDB/ReadFile>
+#include <osgDB/Registry>
 #include <osgDB/WriteFile>
+#include <osgUtil/SmoothingVisitor>
 #include <osgViewer/Viewer>
 
 using namespace h2o;
+
+cv::Mat pcd_normal(const cv::Mat &mat_xyz, const Vector2i &size);
+
 struct ScreenShot : public osg::Camera::DrawCallback {
     ScreenShot(const h2o::Block &block) : block_(block) {
         iid_ = INVALID_INDEX;
@@ -77,6 +82,7 @@ struct ScreenShot : public osg::Camera::DrawCallback {
             }
 
             // calculate the xyz for the depths value
+            // this is only for demonstration, in applications, we never directly calculate the xyz and normal images
             {
                 mat_xyz = cv::Mat(mat_rgb.rows, mat_rgb.cols, CV_32FC3);
                 osg::Matrixd proj = camera->getProjectionMatrix();
@@ -127,10 +133,40 @@ struct ScreenShot : public osg::Camera::DrawCallback {
                 gdal_compute_statistics(path_xyz);
             }
 
-            // calculate the normal vector, because it's not possible to write shader for it
-            // and fixed osg pipeline (with osgb file) does not support this
+            // calculate the normal vector, because it's not possible without writing shader for it
             // we calculate it in CPU from the points here
-            {}
+            {
+                mat_nor = pcd_normal(mat_xyz, Vector2i(mat_xyz.cols / 2, mat_xyz.rows / 2));
+                // change the direction of normal vector
+                // normal vector should face the camera
+                Vector3f C = block_.photos.at(iid_).C.cast<float>();
+                for (int r = 0; r < mat_nor.rows; ++r) {
+                    cv::Vec3f *ptr_nor = mat_nor.ptr<cv::Vec3f>(r);
+                    cv::Vec3f *ptr_xyz = mat_xyz.ptr<cv::Vec3f>(r);
+                    for (int c = 0; c < mat_nor.cols; ++c) {
+                        cv::Vec3f nor = ptr_nor[c];
+                        cv::Vec3f xyz = ptr_xyz[c];
+                        if (nor[0] == 0.0f && nor[1] == 0.0f && nor[2] == 0.0f) {
+                            continue;
+                        }
+                        if (xyz[0] == FLT_MAX || xyz[1] == FLT_MAX || xyz[2] == FLT_MAX) {
+                            continue;
+                        }
+                        Vector3f xyz3(xyz[0], xyz[1], xyz[2]);
+                        Vector3f nor3(nor[0], nor[1], nor[2]);
+
+                        Vector3f dir = C - xyz3;
+                        if (nor3.dot(dir) < 0) {
+                            nor = -nor;
+                        }
+                        ptr_nor[c] = nor;
+                    }
+                }
+
+                std::string path_nor = join_paths(outdir_, name + "_nor.tif");
+                gdal_write_image(path_nor, mat_nor);
+                gdal_compute_statistics(path_nor);
+            }
         }
     }
 

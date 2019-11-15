@@ -138,6 +138,9 @@ find_package(Geogram REQUIRED)
 # Embree3::Embree3
 find_package(Embree3 REQUIRED)
 
+
+find_package(TBB REQUIRED)
+
 # openmp
 find_package(OpenMP REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
