@@ -37,6 +37,8 @@ using PhotoGroups = std::map<uint32_t, PhotoGroup>;
 struct Block {
     Photos photos;
     PhotoGroups groups;
+
+    Vector2d project(const Vector3d &point, uint32_t iid) const;
 };
 
 // load an xml block file

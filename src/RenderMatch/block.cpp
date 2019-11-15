@@ -302,7 +302,7 @@ Block load_block(const std::string &path) {
         std::vector<uint32_t> photo_iids;
 
         for (const auto &p : photos) {
-            iid_t iid = std::stoi((std::string)p["Id"]);
+            iid_t iid = p["Id"];
             std::string path = p["ImagePath"];
 
             Matrix3d R;
@@ -372,9 +372,9 @@ void save_block(const std::string &path, const Block &block) {
         uint32_t cid = pair.first;
 
         jpgroup["Name"] = "Photogroup #" + std::to_string(cid);
-        jpgroup["ImageDimensions"]["Width"] = std::to_string(pair.second.width);
-        jpgroup["ImageDimensions"]["Height"] = std::to_string(pair.second.height);
-        jpgroup["FocalLengthPixels"] = std::to_string(pair.second.f);
+        jpgroup["ImageDimensions"]["Width"] = pair.second.width;
+        jpgroup["ImageDimensions"]["Height"] = pair.second.height;
+        jpgroup["FocalLengthPixels"] = pair.second.f;
         jpgroup["CameraOrientation"] = "XRightYUp";
         jpgroup["PrincipalPoint"]["x"] = pair.second.u0;
         jpgroup["PrincipalPoint"]["y"] = pair.second.v0;
@@ -461,5 +461,33 @@ FrameCamera to_framecamera(const PhotoGroup &pgroup) {
     camera.size_(1) = pgroup.height;
 
     return camera;
+}
+Vector2d Block::project(const Vector3d &point, uint32_t iid) const {
+
+    uint32_t cid = photos.at(iid).cid;
+    double f = groups.at(cid).f;
+
+    Vector3d XC = point - photos.at(iid).C;
+    XC = photos.at(iid).R * XC;
+
+    Vector2d xc = XC.hnormalized();
+    double r2 = xc.squaredNorm();
+
+    double k1 = groups.at(cid).k1;
+    double k2 = groups.at(cid).k2;
+    double k3 = groups.at(cid).k3;
+    double p1 = groups.at(cid).p1;
+    double p2 = groups.at(cid).p2;
+    double kd = 1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2;
+
+    Vector2d xd;
+    xd.x() = xc.x() * kd + 2 * p1 * xc.x() * xc.y() + p2 * (r2 + 2 * xc.x() * xc.x());
+    xd.y() = xc.y() * kd + p1 * (r2 + 2 * xc.y() * xc.y()) + 2 * p2 * xc.y() * xc.y();
+
+    double u0 = groups.at(cid).u0;
+    double v0 = groups.at(cid).v0;
+    Vector2d x = f * xd + Vector2d(u0, v0);
+
+    return x;
 }
 } // namespace h2o
