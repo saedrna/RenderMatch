@@ -108,35 +108,35 @@ cv::Mat UndistortImageWorker::process_image(const Photo &photo) {
     image = cv::imdecode(buffer, cv::IMREAD_UNCHANGED);
     buffer.clear();
 
-    ///\s.a http://sylvana.net/jpegcrop/exif_orientation.html
-    switch (orientation) {
-    case 1:
-        break;
-    case 2:
-        cv::flip(image, image, 1); // horizontal
-        break;
-    case 3:
-        cv::flip(image, image, -1); // both
-        break;
-    case 4:
-        cv::flip(image, image, 0); // vertical
-        break;
-    case 5:
-        image = image.t(); // transpose
-        break;
-    case 6:
-        cv::flip(image.t(), image, 0); // transpose -> vertical
-        break;
-    case 7:
-        cv::flip(image.t(), image, -1); // transpose -> both
-        break;
-    case 8:
-        cv::flip(image.t(), image, 1); // transpose -> horizontal
-        break;
-    default:
-        LOG(WARNING) << "unknown orientation";
-        break;
-    }
+    //     ///\s.a http://sylvana.net/jpegcrop/exif_orientation.html
+    //     switch (orientation) {
+    //     case 1:
+    //         break;
+    //     case 2:
+    //         cv::flip(image, image, 1); // horizontal
+    //         break;
+    //     case 3:
+    //         cv::flip(image, image, -1); // both
+    //         break;
+    //     case 4:
+    //         cv::flip(image, image, 0); // vertical
+    //         break;
+    //     case 5:
+    //         image = image.t(); // transpose
+    //         break;
+    //     case 6:
+    //         cv::flip(image.t(), image, 0); // transpose -> vertical
+    //         break;
+    //     case 7:
+    //         cv::flip(image.t(), image, -1); // transpose -> both
+    //         break;
+    //     case 8:
+    //         cv::flip(image.t(), image, 1); // transpose -> horizontal
+    //         break;
+    //     default:
+    //         LOG(WARNING) << "unknown orientation";
+    //         break;
+    //     }
 
     const cv::Mat &mapx = mapx_.at(photo.cid);
     const cv::Mat &mapy = mapy_.at(photo.cid);

@@ -147,36 +147,46 @@ cv::Mat TileImageWorker::process_image(const Photo &photo) const {
     image = cv::imdecode(buffer, cv::IMREAD_UNCHANGED);
     buffer.clear();
 
-    ///\s.a http://sylvana.net/jpegcrop/exif_orientation.html
-    switch (orientation) {
-    case 1:
-        break;
-    case 2:
-        cv::flip(image, image, 1); // horizontal
-        break;
-    case 3:
-        cv::flip(image, image, -1); // both
-        break;
-    case 4:
-        cv::flip(image, image, 0); // vertical
-        break;
-    case 5:
-        image = image.t(); // transpose
-        break;
-    case 6:
-        cv::flip(image.t(), image, 0); // transpose -> vertical
-        break;
-    case 7:
-        cv::flip(image.t(), image, -1); // transpose -> both
-        break;
-    case 8:
-        cv::flip(image.t(), image, 1); // transpose -> horizontal
-        break;
-    default:
-        LOG(WARNING) << "unknown orientation";
-        break;
-    }
-
+    //     if (orientation != 1) {
+    //         LOG(INFO) << "Image size for " << get_filename_noext(photo.path) << " is (" << image.rows << ", " <<
+    //         image.cols
+    //                   << ").";
+    //     }
+    //
+    //     ///\s.a http://sylvana.net/jpegcrop/exif_orientation.html
+    //     switch (orientation) {
+    //     case 1:
+    //         break;
+    //     case 2:
+    //         cv::flip(image, image, 1); // horizontal
+    //         break;
+    //     case 3:
+    //         cv::flip(image, image, -1); // both
+    //         break;
+    //     case 4:
+    //         cv::flip(image, image, 0); // vertical
+    //         break;
+    //     case 5:
+    //         image = image.t(); // transpose
+    //         break;
+    //     case 6:
+    //         cv::flip(image.clone().t(), image, 0); // transpose -> vertical
+    //         break;
+    //     case 7:
+    //         cv::flip(image.clone().t(), image, -1); // transpose -> both
+    //         break;
+    //     case 8:
+    //         cv::flip(image.clone().t(), image, 1); // transpose -> horizontal
+    //         break;
+    //     default:
+    //         LOG(WARNING) << "unknown orientation";
+    //         break;
+    //     }
+    //     if (orientation != 1) {
+    //         LOG(INFO) << "Image size for " << get_filename_noext(photo.path) << " is (" << image.rows << ", " <<
+    //         image.cols
+    //                   << ").";
+    //     }
     return image;
 }
 
