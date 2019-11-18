@@ -5,5 +5,6 @@ target_link_libraries(RenderMeshMatch
                               h2o_match
                               h2o_base
                               ${OPENSCENEGRAPH_LIBRARIES}
+                              ${GDAL_LIBRARY}
                               OpenGL::GL
                               OpenGL::GLU)

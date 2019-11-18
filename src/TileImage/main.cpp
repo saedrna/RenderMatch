@@ -115,7 +115,7 @@ void TileImageWorker::run() {
         }
 
         cv::Mat mat = process_image(block_.photos.at(iid));
-        std::vector<uint8_t> buf = tiff_encode(mat);
+        std::vector<uint8_t> buf = tiff_encode_pyramid(mat);
         mat.release();
 
 #pragma omp critical

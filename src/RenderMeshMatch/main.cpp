@@ -6,6 +6,7 @@
 
 #include <cxxopts.hpp>
 
+#include <opencv2/imgcodecs.hpp>
 #include <osg/PagedLOD>
 #include <osgDB/DatabasePager>
 #include <osgDB/ReadFile>
@@ -16,6 +17,8 @@
 
 #include <RenderMatch/block.h>
 #include <base/base.h>
+
+#include <gdal.h>
 
 #include "render_matcher.h"
 
@@ -56,7 +59,7 @@ struct ScreenShot : public osg::Camera::DrawCallback {
                                   (size_t)image->getRowStepInBytes())
                               .clone();
                 cv::cvtColor(mat_rgb, mat_rgb, cv::COLOR_RGBA2BGRA);
-                *mat_rgb_ = mat_rgb;
+                *mat_rgb_ = mat_rgb.clone();
             }
 
             // read the depth value
@@ -68,7 +71,7 @@ struct ScreenShot : public osg::Camera::DrawCallback {
                 mat_dep = cv::Mat(viewport->height(), viewport->width(), CV_32FC1, (void *)image->getDataPointer(),
                                   (size_t)image->getRowStepInBytes());
 
-                *mat_dep_ = mat_dep;
+                *mat_dep_ = mat_dep.clone();
             }
         }
     }
@@ -82,6 +85,8 @@ struct ScreenShot : public osg::Camera::DrawCallback {
 };
 
 int main(int argc, char **argv) {
+    GDALAllRegister();
+
     cxxopts::Options options("RenderMeshMatch",
                              "The pipeline for render image and aerial-ground match with rendered images as delegates");
 
@@ -120,6 +125,11 @@ int main(int argc, char **argv) {
 
     osg::ref_ptr<osg::Node> model = osgDB::readRefNodeFile(path_model);
     viewer.setSceneData(model);
+
+    RenderMatcher matcher;
+    matcher.set_block(block_aerial, block_ground);
+    matcher.set_param(param);
+    RenderMatchResults match_results;
 
     // for each photo groups, set the viewport for rendering and do the rendering
     for (const auto &pgroups : block_ground_rectified.groups) {
@@ -249,6 +259,25 @@ int main(int argc, char **argv) {
             viewer.frame();
 
             // we have finished the rendering, now we have the rgb and depth image
+            osg::Matrixd proj = viewer.getCamera()->getProjectionMatrix();
+            osg::Matrixd view = viewer.getCamera()->getViewMatrix();
+
+            Matrix4f eproj, eview;
+            for (int r = 0; r < 4; ++r) {
+                for (int c = 0; c < 4; ++c) {
+                    eproj(r, c) = proj(c, r);
+                    eview(r, c) = view(c, r);
+                }
+            }
+
+            matcher.set_ogl_matrices(eview, eproj);
+            RenderMatchResults results_image = matcher.match(iid, *mat_rgb, *mat_dep);
+            match_results.insert(end(match_results), begin(results_image), end(results_image));
+
+            if (iid == 0) {
+                cv::Mat mat = matcher.draw_matches(0, 0, match_results);
+                cv::imwrite("test.jpg", mat);
+            }
         }
     }
 
