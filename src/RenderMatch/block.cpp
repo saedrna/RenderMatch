@@ -100,7 +100,7 @@ Block load_block_xml(const std::string &path) {
         block_photogroup.k2 = k2;
         block_photogroup.k3 = k3;
         block_photogroup.p1 = p1;
-        block_photogroup.p1 = p2;
+        block_photogroup.p2 = p2;
 
         Matrix3d O = Matrix3d::Identity();
         if (g.find("CameraOrientation") != g.end()) {
@@ -375,7 +375,7 @@ void save_block(const std::string &path, const Block &block) {
         jpgroup["ImageDimensions"]["Width"] = pair.second.width;
         jpgroup["ImageDimensions"]["Height"] = pair.second.height;
         jpgroup["FocalLengthPixels"] = pair.second.f;
-        jpgroup["CameraOrientation"] = "XRightYUp";
+        jpgroup["CameraOrientation"] = "XRightYDown";
         jpgroup["PrincipalPoint"]["x"] = pair.second.u0;
         jpgroup["PrincipalPoint"]["y"] = pair.second.v0;
         jpgroup["AspectRatio"] = 1;
@@ -482,7 +482,7 @@ Vector2d Block::project(const Vector3d &point, uint32_t iid) const {
 
     Vector2d xd;
     xd.x() = xc.x() * kd + 2 * p1 * xc.x() * xc.y() + p2 * (r2 + 2 * xc.x() * xc.x());
-    xd.y() = xc.y() * kd + p1 * (r2 + 2 * xc.y() * xc.y()) + 2 * p2 * xc.y() * xc.y();
+    xd.y() = xc.y() * kd + p1 * (r2 + 2 * xc.y() * xc.y()) + 2 * p2 * xc.x() * xc.y();
 
     double u0 = groups.at(cid).u0;
     double v0 = groups.at(cid).v0;
