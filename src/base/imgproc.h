@@ -50,6 +50,8 @@ cv::Mat remap_ipp(const cv::Mat &src, const cv::Mat &mapx, const cv::Mat &mapy, 
 // dest = A * source
 Matrix23d compute_affine(const std::vector<Vector2d> &source, const std::vector<Vector2d> &dest);
 
+Matrix23d revers_affine(const Matrix23d &M);
+
 // dest = H * source
 Matrix3d compute_homography(const std::vector<Vector2d> &source, const std::vector<Vector2d> &dest);
 

@@ -492,6 +492,17 @@ Matrix23d compute_affine(const std::vector<Vector2d> &source, const std::vector<
     return A;
 }
 
+Matrix23d revers_affine(const Matrix23d &M) {
+    Matrix2d A = M.leftCols(2).inverse();
+    Vector2d b = -A * M.col(2);
+
+    Matrix23d M2;
+    M2.leftCols(2) = A;
+    M2.col(2) = b;
+
+    return M2;
+}
+
 Matrix3d compute_homography(const std::vector<Vector2d> &source, const std::vector<Vector2d> &dest) {
     std::vector<cv::Point2f> cv_source(source.size()), cv_dest(dest.size());
     for (int i = 0; i < source.size(); ++i) {
