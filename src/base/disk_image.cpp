@@ -68,7 +68,7 @@ std::tuple<Matrix23d, cv::Mat> DiskImage::get_patch(const BoundingBox2i &roi, co
         band->RasterIO(GF_Read, offx, offy, width, height, patch.data + pixel_stride_ / channels_ * i, patch.cols,
                        patch.rows, (GDALDataType)gdal_datatype_, pixel_stride_, patch.step[0], NULL);
     }
-    close();
+    //     close();
 
     // 计算变换信息
     std::vector<cv::Point2f> origin2d = {cv::Point2f(offx - 0.5, offy - 0.5),
@@ -658,6 +658,7 @@ void DiskImage::init_dataset() {
         // 已经初始化了
         return;
     }
+    GDALAllRegister();
 
     if (read_only_) {
         dataset_ = (GDALDataset *)GDALOpen(path_.c_str(), GA_ReadOnly);
@@ -667,17 +668,17 @@ void DiskImage::init_dataset() {
 
     ImageHeader header;
     gdal_image_header(dataset_, header);
-    if (header.levels == 0 && read_only_) {
-        GDALClose(dataset_);
-        dataset_ = (GDALDataset *)GDALOpen(path_.c_str(), GA_Update);
-        gdal_build_overviews(path_);
-        GDALClose(dataset_);
-        if (read_only_) {
-            dataset_ = (GDALDataset *)GDALOpen(path_.c_str(), GA_ReadOnly);
-        } else {
-            dataset_ = (GDALDataset *)GDALOpen(path_.c_str(), GA_Update);
-        }
-    }
+    //     if (header.levels == 0 && read_only_) {
+    //         GDALClose(dataset_);
+    //         dataset_ = (GDALDataset *)GDALOpen(path_.c_str(), GA_Update);
+    //         gdal_build_overviews(path_);
+    //         GDALClose(dataset_);
+    //         if (read_only_) {
+    //             dataset_ = (GDALDataset *)GDALOpen(path_.c_str(), GA_ReadOnly);
+    //         } else {
+    //             dataset_ = (GDALDataset *)GDALOpen(path_.c_str(), GA_Update);
+    //         }
+    //     }
     gdal_image_header(dataset_, header);
     size_(0) = header.width;
     size_(1) = header.height;
@@ -790,6 +791,9 @@ void DiskImage::init_lut(const Vector2i &minmax8u) {
 }
 
 void DiskImage::open() {
+    if (dataset_) {
+        return;
+    }
     if (read_only_) {
         dataset_ = (GDALDataset *)GDALOpen(path_.c_str(), GA_ReadOnly);
     } else {
