@@ -75,8 +75,11 @@ Block load_block_xml(const std::string &path) {
             k1 = std::stod((std::string)g["Distortion"]["K1"]);
             k2 = std::stod((std::string)g["Distortion"]["K2"]);
             k3 = std::stod((std::string)g["Distortion"]["K3"]);
-            p1 = std::stod((std::string)g["Distortion"]["P1"]);
-            p2 = std::stod((std::string)g["Distortion"]["P2"]);
+
+            // opencv and block exchange has different definition of p1 and p2
+            // we use the opencv protocol
+            p2 = std::stod((std::string)g["Distortion"]["P1"]);
+            p1 = std::stod((std::string)g["Distortion"]["P2"]);
         }
 
         Matrix3d K = Matrix3d::Identity();
@@ -87,7 +90,7 @@ Block load_block_xml(const std::string &path) {
         distortion.push_back(k1);
         distortion.push_back(k2);
         distortion.push_back(p1);
-        distortion.push_back(p1);
+        distortion.push_back(p2);
         distortion.push_back(k3);
 
         block_photogroup.f = focal_pixel;
