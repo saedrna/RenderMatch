@@ -17,6 +17,9 @@
 namespace h2o {
 Block load_block_xml(const std::string &path) {
 
+	 Vector3d originCoord;
+    originCoord << 0, 0, 0;
+
     nlohmann::json j;
     {
         QFile file(QString::fromStdString(path));
@@ -175,7 +178,7 @@ Block load_block_xml(const std::string &path) {
             block_photo.id = iid;
             block_photo.cid = cid;
             block_photo.path = path;
-            block_photo.C = Vector3d(x, y, z);
+            block_photo.C = Vector3d(x, y, z)-originCoord;
             block_photo.R = R;
             block_photo.znear = znear;
             block_photo.zfar = zfar;
@@ -198,6 +201,8 @@ Block load_block_xml(const std::string &path) {
 Block load_block(const std::string &path) {
 
     nlohmann::json j;
+    Vector3d originCoord;
+	originCoord << 402750, 3406239, 0;
     {
         QFile file(QString::fromStdString(path));
         file.open(QFile::ReadOnly);
@@ -343,7 +348,7 @@ Block load_block(const std::string &path) {
             block_photo.id = iid;
             block_photo.cid = cid;
             block_photo.path = path;
-            block_photo.C = Vector3d(x, y, z);
+            block_photo.C = Vector3d(x, y, z) - originCoord;
             block_photo.R = R;
             block_photo.znear = znear;
             block_photo.zmed = zmed;

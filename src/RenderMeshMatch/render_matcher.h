@@ -8,6 +8,7 @@
 #include <RenderMatch/block.h>
 #include <base/base.h>
 #include <match/sift_detector.h>
+#include <opencv2/opencv.hpp>
 
 using namespace h2o;
 
@@ -19,7 +20,7 @@ struct RenderMeshMatchConfig {
     double angle_difference = 60.0;
 
     // ncc window for correlation, should be odd
-    int ncc_window = 21;
+    int ncc_window = 101;
 
     // additional search region for ncc, to locate the peak
     // final patch size is (window / 2 + search / 2) * 2 + 1
@@ -30,6 +31,9 @@ struct RenderMeshMatchConfig {
 
     // use lsm on the patch
     bool use_lsm = false;
+
+	//ground images and render images distance constraint 
+	double keys_dist = 100;
 };
 
 RenderMeshMatchConfig load_config(const std::string &path);
@@ -58,6 +62,7 @@ public:
 
     // debug two match images
     cv::Mat draw_matches(uint32_t iid_ground, uint32_t iid_aerial, const RenderMatchResults &matches);
+	cv::Mat draw_matches(uint32_t iid_ground, uint32_t iid_aerial, const RenderMatchResults &matches, cv::Scalar color);
 
 protected:
     // extract a patch from the rendered image, four corner points and a normal vector
@@ -68,14 +73,14 @@ protected:
 
     // extract a patch from the aerial image, with a homography matrix to determine the original coordinates
     // aerial = H * patch
-    std::tuple<cv::Mat, Matrix3f> get_patch_on_aerial_image(uint32_t iid_ground, uint32_t iid_aerial,
+    std::tuple<cv::Mat, cv::Mat, Matrix3f> get_patch_on_aerial_image(uint32_t iid_ground, uint32_t iid_aerial,
                                                             const MatrixXf &corners, const Vector3f &normal);
 
     // return a patch on the ground image, which is the template
     // extract a patch from the ground image, assume that the deformation between ground and render image is removed
     // i.e. only translational difference
 
-    cv::Mat get_patch_on_ground_image(uint32_t iid, const Vector2d &point);
+    std::tuple<cv::Mat, cv::Mat> get_patch_on_ground_image(uint32_t iid, const Vector2d &point);
 
     std::vector<uint32_t> search_visible_aerial_images(const MatrixXf &corners, const Vector3f &normal);
 

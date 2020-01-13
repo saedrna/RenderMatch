@@ -52,6 +52,13 @@ public:
     static cv::Mat draw_matches(const cv::Mat &mat_i, const cv::Mat &mat_j, const FeaturePoints &feat_i,
                                 const FeaturePoints &feat_j, const IndexMatches &matches);
 
+	std::vector<cv::DMatch> SiftMatcher::match(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc,
+                                               std::vector<cv::KeyPoint> keys_ground,
+                                               std::vector<cv::KeyPoint> keys_render);
+	std::vector<cv::DMatch> SiftMatcher::matchSift(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc);
+	std::vector<cv::DMatch> SiftMatcher::matchp(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc,
+		std::vector<cv::KeyPoint> keys_ground,std::vector<cv::KeyPoint> keys_render);
+
 protected:
     IndexMatches acransac(const FeaturePoints &i_feat, const FeaturePoints &j_feat, const IndexMatches &initial);
     std::vector<cv::DMatch> retain_best_matches(const std::vector<cv::KeyPoint> &qkeys,

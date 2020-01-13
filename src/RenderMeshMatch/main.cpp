@@ -24,6 +24,15 @@
 
 using namespace h2o;
 
+void drawCross(cv::Mat img, cv::Point point, cv::Scalar color, int size, int thickness) {
+    //绘制横线
+    cv::line(img, cv::Point(point.x - size / 2, point.y), cv::Point(point.x + size / 2, point.y), color, thickness, 8,
+             0);
+    //绘制竖线
+    cv::line(img, cv::Point(point.x, point.y - size / 2), cv::Point(point.x, point.y + size / 2), color, thickness, 8,
+             0);
+}
+
 struct ScreenShot : public osg::Camera::DrawCallback {
     ScreenShot(const h2o::Block &block) : block_ground_(block) { iid_ = INVALID_INDEX; }
 
@@ -114,6 +123,7 @@ int main(int argc, char **argv) {
     path_aerial_at = QFileInfo(QString::fromLocal8Bit(path_aerial_at.c_str())).absoluteFilePath().toStdString();
     path_model = QFileInfo(QString::fromLocal8Bit(path_model.c_str())).absoluteFilePath().toStdString();
     RenderMeshMatchConfig param = load_config(path_config);
+    //param.ncc_search = 101;
 
     h2o::Block block_aerial = load_block(path_aerial_at);
     h2o::Block block_ground = load_block(path_ground_at);
@@ -168,8 +178,9 @@ int main(int argc, char **argv) {
                 LOG(ERROR) << "Failed to created requested graphics context";
                 return 1;
             }
-
+            // viewer.run();
             // transparent background
+
             viewer.getCamera()->setClearColor(osg::Vec4(255.0f, 255.0f, 255.0f, 0.0f));
             viewer.getCamera()->setGraphicsContext(gc.get());
             viewer.getCamera()->setDisplaySettings(ds.get());
@@ -206,7 +217,7 @@ int main(int argc, char **argv) {
 
         // set up the viewport
         auto photos = pgroup.photos;
-        for (uint32_t iid : photos) {
+        for (uint32_t iid /*: photos*/ = 53; iid < photos.size(); iid++) {
             Photo photo = block_ground_rectified.photos.at(iid);
 
             // near and far are used to determine the projection matrix in ogl
@@ -225,7 +236,9 @@ int main(int argc, char **argv) {
              * |
              * \/
              */
-            Vector3d eye = photo.C;
+           
+
+            Vector3d eye = photo.C ;
             Vector3d target = eye + dir * zmed;
             Vector3d up = R.transpose() * Vector3d(0, -1, 0);
 
@@ -244,6 +257,13 @@ int main(int argc, char **argv) {
             screen_shot->set_iid(INVALID_INDEX);
 
             // there are at most 21 levels, and each frame will request all the nodes in the next level
+
+            // viewer.run();
+            /*	 for (int i = 0; i < 100; i++)
+                {
+                        viewer.frame();
+                }*/
+
             for (int i = 0; i < 21; ++i) {
                 viewer.frame();
                 int node_num = viewer.getDatabasePager()->getFileRequestListSize();
@@ -274,10 +294,52 @@ int main(int argc, char **argv) {
             RenderMatchResults results_image = matcher.match(iid, *mat_rgb, *mat_dep);
             match_results.insert(end(match_results), begin(results_image), end(results_image));
 
-            if (iid == 0) {
-                cv::Mat mat = matcher.draw_matches(0, 0, match_results);
-                cv::imwrite("test.jpg", mat);
-            }
+			/*写为Track*/
+
+			//std::string trackpath = "track2.txt";
+   //         std::ofstream outputFile;
+   //         outputFile.open(trackpath, std::ios::app);
+   //         for (int i = 0; i < results_image.size(); i++) {
+   //             outputFile << 0 << " ";
+   //             outputFile << results_image[i].xyz.x() << " ";
+   //             outputFile << results_image[i].xyz.y() << " ";
+   //             outputFile << results_image[i].xyz.z() << " ";
+   //             outputFile << results_image[i].iid_ground << " ";
+   //             outputFile << results_image[i].pt_ground.x() << " ";
+   //             outputFile << results_image[i].pt_ground.y() << " ";
+   //             for (int j = 0; j < results_image[i].iid_aerial.size(); j++) {
+   //                 if (1/*results_image[i].iid_aerial[j]<=2*/)
+   //                 {
+   //                     outputFile << results_image[i].iid_aerial[j] + 192 << " ";
+   //                 }
+   //                 else
+   //                 {
+   //                     outputFile << results_image[i].iid_aerial[j] + 202 << " ";
+   //                 }
+   //                 
+
+   //                 outputFile << results_image[i].pt_aerial[j].x() << " ";
+   //                 outputFile << results_image[i].pt_aerial[j].y() << " ";
+   //             }
+   //             outputFile << " \n";
+   //         }
+
+   //         outputFile.close();
+			
+
+			/*std::string path_ground = block_ground_.photos.at(iid_ground).path;
+            std::string path_aerial = block_aerial_.photos.at(iid_aerial).path;
+
+            cv::Mat mat_ground = cv::imread(path_ground, cv::IMREAD_UNCHANGED);
+            cv::Mat mat_aerial = cv::imread(path_aerial, cv::IMREAD_UNCHANGED);*/           		
+
+			
+           // if (iid == 0) {
+			cv::Mat mat = matcher.draw_matches(21, 178, match_results, cv::Scalar(0,255,0,0));
+            cv::imwrite("2315-7055.jpg", mat);
+           /* cv::Mat mat2 = matcher.draw_matches(191, 64, match_results);
+            cv::imwrite("2315-7106.jpg", mat2);*/
+           // }
         }
     }
 
