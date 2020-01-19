@@ -172,8 +172,8 @@ if(TARGET gflags_shared)
   list(APPEND MAP_LIBRARIES gflags_shared)
 endif(TARGET gflags_shared)
 
-set_target_properties(${MAP_LIBRARIES}
-                      PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
+#set_target_properties(${MAP_LIBRARIES}
+#                      PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
 include_directories(${EIGEN3_INCLUDE_DIR}
                     ${CMAKE_CURRENT_LIST_DIR}/depends

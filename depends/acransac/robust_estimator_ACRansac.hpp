@@ -104,6 +104,31 @@ static void UniformSample(int sizeSample, const std::vector<size_t> &vec_index, 
     for (int i = 0; i < sizeSample; ++i)
         (*sample)[i] = vec_index[(*sample)[i]];
 }
+/************************************************************************/
+/* wzd add uniform ransac                                                */
+/************************************************************************/
+
+static void random_sampleW(size_t X, size_t n, std::vector<size_t> *samples) {
+    samples->resize(X);
+    for (size_t i = 0; i < X; ++i) {
+        size_t r = (rand() >> 3) % (n - i), j;
+        for (j = 0; j < i && r >= (*samples)[j]; ++j)
+            ++r;
+        size_t j0 = j;
+        for (j = i; j > j0; --j)
+            (*samples)[j] = (*samples)[j - 1];
+        (*samples)[j0] = r;
+    }
+}
+static void UniformSampleW(int sizeSample, const std::vector<size_t> &vec_index, std::vector<size_t> *sample) {
+    sample->resize(sizeSample);
+    random_sampleW(sizeSample, vec_index.size(), sample);
+    for (int i = 0; i < sizeSample; ++i)
+        (*sample)[i] = vec_index[(*sample)[i]];
+}
+/************************************************************************/
+/* wzd add uniform ransac                                                */
+/************************************************************************/
 
 /**
  * @brief ACRANSAC routine (ErrorThreshold, NFA)
@@ -124,7 +149,7 @@ std::pair<double, double> ACRANSAC(const Kernel &kernel, std::vector<size_t> &ve
     vec_inliers.clear();
 
     const size_t sizeSample = Kernel::MINIMUM_SAMPLES;
-    const size_t nData = kernel.NumSamples();
+	const size_t nData = kernel.NumSamples();
     if (nData <= (size_t)sizeSample)
         return std::make_pair(0.0, 0.0);
 
@@ -176,7 +201,7 @@ std::pair<double, double> ACRANSAC(const Kernel &kernel, std::vector<size_t> &ve
             // Most meaningful discrimination inliers/outliers
             const ErrorIndex best = bestNFA(sizeSample, kernel.logalpha0(), vec_residuals, loge0, maxThreshold,
                                             vec_logc_n, vec_logc_k, kernel.multError());
-
+			
             if (best.first < minNFA /*&& vec_residuals[best.second-1].first < errorMax*/) {
                 // A better model was found
                 better = true;
