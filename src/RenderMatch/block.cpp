@@ -202,7 +202,7 @@ Block load_block(const std::string &path) {
 
     nlohmann::json j;
     Vector3d originCoord;
-	originCoord << 402750, 3406239, 0;
+	originCoord << 402971, 3406101, 0;
     {
         QFile file(QString::fromStdString(path));
         file.open(QFile::ReadOnly);

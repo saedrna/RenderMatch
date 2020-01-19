@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
 
         // set up the viewport
         auto photos = pgroup.photos;
-        for (uint32_t iid /*: photos*/ = 53; iid < photos.size(); iid++) {
+        for (uint32_t iid /*: photos*/ = 4; iid < photos.size(); iid++) {
             Photo photo = block_ground_rectified.photos.at(iid);
 
             // near and far are used to determine the projection matrix in ogl
@@ -335,8 +335,8 @@ int main(int argc, char **argv) {
 
 			
            // if (iid == 0) {
-			cv::Mat mat = matcher.draw_matches(21, 178, match_results, cv::Scalar(0,255,0,0));
-            cv::imwrite("2315-7055.jpg", mat);
+			cv::Mat mat = matcher.draw_matches(iid, 178, match_results, cv::Scalar(0,255,0,0));
+            cv::imwrite(std::to_string(iid)+".jpg", mat);
            /* cv::Mat mat2 = matcher.draw_matches(191, 64, match_results);
             cv::imwrite("2315-7106.jpg", mat2);*/
            // }

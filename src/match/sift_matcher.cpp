@@ -14,6 +14,11 @@
 
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/flann.hpp>
+#include <opencv2/flann/miniflann.hpp>
+#include <opencv2/flann/kdtree_index.h>
+#include <opencv2/flann/matrix.h>
+
 #include <iostream>
 #include <fstream>
 
@@ -271,73 +276,133 @@ std::vector<cv::DMatch> SiftMatcher::matchp(const std::vector<cv::KeyPoint> &qke
 	}
 
 	std::vector < std::vector<float> > dists;
+	std::vector<float> distance;
+    std::vector<int> frequency;
+    std::vector<float> orients;
+	
+	
 
-	//std::ofstream distFile;
-	//distFile.open("dist1.csv", std::ios::out | std::ios::trunc);
-	for (const auto &match : matches) {
-		auto key_ground = keys_ground.at(match.trainIdx);
-		auto key_render = keys_render.at(match.queryIdx);
-		float keyDist =
-			std::powf((key_ground.pt.x - key_render.pt.x), 2) + std::powf((key_ground.pt.y - key_render.pt.y), 2);
-
-		//distFile << keyDist << std::endl;
-
-		std::vector<float> keyInfo;
-		keyInfo.push_back(keyDist);
-		keyInfo.push_back(keys_render.at(match.queryIdx).pt.x);
-		keyInfo.push_back(keys_render.at(match.queryIdx).pt.y);
-		keyInfo.push_back(keys_ground.at(match.trainIdx).pt.x);
-		keyInfo.push_back(keys_ground.at(match.trainIdx).pt.y);
-
-		dists.push_back(keyInfo);
-
-		/*if (std::sqrt(keyDist) < 200) {
-	  lenMatches.push_back(match);
-  }*/
-		keyInfo.clear();
-	}
-	//distFile.close();
-
-	/*sort the matches by the distance*/
-	bool isLoop = true;
-	for (int i = dists.size(); true == isLoop && i > 0; --i) {
-		isLoop == false;
-		for (int j = 1; j < i; ++j) {
-			if (dists[j][0] < dists[j - 1][0]) {
-				std::vector<float> temp;
-				cv::DMatch tempMatch;
-				cv::KeyPoint tempKey;
-				temp = dists[j];
-				tempMatch = matches[j];
-				tempKey = qkeys[j];
-
-				dists[j] = dists[j - 1];
-				matches[j] = matches[j - 1];
-
-				dists[j - 1] = temp;
-				matches[j - 1] = tempMatch;
-			}
-		}
-	}
-	for (int i = 0; i < matches.size(); i++)
+	/*Consistency1. Scale*/
 	{
-		auto itc = matches.begin();
-		auto itct = dists.begin();
-		for (int j = i + 1; j < matches.size(); j++)
-		{
-			if (i == matches.size() - 1)
-			{
-				break;
-			}
-			else if (lineIntersection(matches[i], matches[j], keys_render, keys_ground) || dists[j][0] > 900)
-			{
-				matches.erase(itc + j);
-				itc--;
-				dists.erase(itct + j);
-				itct--;
-			}
+		std::vector<cv::DMatch> tmatches;
+		for (int i = 0; i < matches.size(); i++) {
+			auto match = matches[i];
+			auto key_ground = keys_ground.at(match.trainIdx);
+			auto key_render = keys_render.at(match.queryIdx);
+			float keyDist = std::sqrt(std::powf((key_ground.pt.x - key_render.pt.x), 2) + std::powf((key_ground.pt.y - key_render.pt.y), 2));
+			distance.push_back(keyDist);
 		}
+		
+		auto itc = matches.begin();
+		auto itcd = distance.begin();
+		for (int i = 0; i < matches.size();i++) {
+			if (distance[i] < 100)
+			{
+				tmatches.push_back(matches[i]);
+			}
+		}		
+		matches = tmatches;
 	}
+		
+
+    /*Consistency2. Frequency*/
+	{
+		std::vector<cv::DMatch> tmatches;
+        frequency.resize(matches.size());
+        int countNum = 0;
+        for (int i = 0; i < matches.size(); i++) {
+            for (int j = i + 1; j < matches.size(); j++) {
+                if (lineIntersection(matches[i], matches[j], keys_render, keys_ground)) {
+                    frequency[i]++;
+                    frequency[j]++;
+                }
+            }
+        }
+        auto itc = matches.begin();
+        auto itcf = frequency.begin();
+        for (int i = 0; i < matches.size(); i++) {
+
+            if (frequency[i] <2) {
+				tmatches.push_back(matches[i]);
+            }
+        }
+		matches = tmatches;
+	}
+	
+
+	/*Consistency3. Orientation*/
+	{		
+		using namespace cv;
+		std::vector<cv::DMatch> tmatches;
+		orients.resize(matches.size());
+		//build index
+        int iTargetNum = matches.size();
+        cvflann::Matrix<float> data(new float[iTargetNum * 2], iTargetNum, 2);
+        for (int i = 0; i < matches.size(); i++) {
+            data[i][0] = keys_ground.at(matches[i].trainIdx).pt.x;
+            data[i][1] = keys_ground.at(matches[i].trainIdx).pt.y;
+        }
+		cvflann::Index<flann::L2_Simple<float>> index(data, cvflann::KDTreeSingleIndexParams(15));
+		index.buildIndex();
+
+		//search knn
+		int knn;
+		if (matches.size()>10)
+		{
+			knn = 5;
+		}
+		else knn = matches.size()/2;
+		
+		cvflann::Matrix<float> p(new float[iTargetNum * 2], iTargetNum, 2);
+		for (int i = 0; i < iTargetNum; i++) 
+		{
+            p[i][0] = keys_ground.at(matches[i].trainIdx).pt.x;
+            p[i][1] = keys_ground.at(matches[i].trainIdx).pt.y;
+		}
+		cvflann::Matrix<int> indices(new int[iTargetNum*knn], iTargetNum, knn);
+		cvflann::Matrix<float> keyDists(new float[iTargetNum*knn], iTargetNum, knn);
+		std::vector<float> vIndices, vDists;
+		vIndices.resize(iTargetNum), vDists.resize(iTargetNum);
+		index.knnSearch(p, indices, keyDists, knn, cvflann::SearchParams());//indices:n个邻近点索引下标, keyDist:对应的距离
+
+		for (int i=0;i<matches.size();i++)
+		{
+            float x1 = keys_render[matches[i].queryIdx].pt.x, y1 = keys_render[matches[i].queryIdx].pt.y,
+                  x2 = keys_ground[matches[i].trainIdx].pt.x, y2 = keys_ground[matches[i].trainIdx].pt.y;           
+			for (int j=0;j<indices.cols;j++)
+			{
+                float x3 = keys_render[matches[indices[i][j]].queryIdx].pt.x, y3 = keys_render[matches[indices[i][j]].queryIdx].pt.y,
+                      x4 = keys_ground[matches[indices[i][j]].trainIdx].pt.x, y4 = keys_ground[matches[indices[i][j]].trainIdx].pt.y;
+				/*Consistency3. Orientation*/
+				orients[i] += (x2 - x1)*(x4 - x3) + (y2 - y1)*(y4 - y3);//取邻近的5对匹配对算与主方向的偏差值
+			}			
+		}
+	
+		data.free();
+		indices.free();
+		keyDists.free();
+        auto itc = matches.begin();
+        auto itco = orients.begin();
+        for (int i = 0; i < matches.size(); i++) {
+
+            if (orients[i] > 0) {
+				tmatches.push_back(matches[i]);
+            }
+		}
+    
+		matches = tmatches;
+    }
+
+    param_.model = 1;
+    if (param_.model == 0) {
+        matches = acransac::acransac_homography(matches, keys_, qkeys, param_.sac_threshold);
+    } else if (param_.model == 1) {
+        matches = acransac::acransac_fundamental(matches, keys_, qkeys, param_.sac_threshold);
+    } else if (param_.model == 3) {
+        matches = acransac::acransac_translation(matches, keys_, qkeys, param_.sac_threshold);
+    } else if (param_.model == 2) {
+        matches = acransac::acransac_fundamental(matches, keys_, qkeys, param_.sac_threshold);
+    }
 
 	return retain_best_matches(qkeys, matches);
 	//return matches;

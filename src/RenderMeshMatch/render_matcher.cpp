@@ -239,18 +239,18 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
 	 cv::Mat &ground_render1= drawRenderMatch(render_img, mat_ground, matchesNoc, keys_render, keys_ground,cv::Scalar(255,0,0,0));
     // cv::imwrite(name + "+sift+ransac+" + std::to_string(matchesNoc.size())+ ".png", ground_render1);
 
-	  /*SIFT+Proposed*/
-     std::vector<cv::DMatch> matchesPro = sift_matcher.matchp(keys_render, desc_render, keys_ground, keys_render);
+	  /*SIFT+Proposed+ransac*/
+     std::vector<cv::DMatch> matches = sift_matcher.matchp(keys_render, desc_render, keys_ground, keys_render);
      cv::Mat &ground_render3 =
-         drawRenderMatch(render_img, mat_ground, matchesPro, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0));
+         drawRenderMatch(render_img, mat_ground, matches, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0));
 
-    /*SIFT+Proposed+ransac*/
-     std::vector<cv::DMatch> matches = sift_matcher.match(keys_render, desc_render, keys_ground, keys_render);
-	 cv::Mat &ground_render2 = drawRenderMatch(render_img, mat_ground, matches, keys_render, keys_ground,cv::Scalar(255,0 , 0, 0));
+    /*SIFT+Proposed+ransac--old*/
+     std::vector<cv::DMatch> matchesPro = sift_matcher.match(keys_render, desc_render, keys_ground, keys_render);
+	 cv::Mat &ground_render2 = drawRenderMatch(render_img, mat_ground, matchesPro, keys_render, keys_ground,cv::Scalar(255,0 , 0, 0));
      
 	 imgSubt(ground_render1, ground_render3);//改变匹配线的颜色
 	 //cv::imwrite(name + "+sift+ransac+" + std::to_string(matchesNoc.size()) + ".png", ground_render1);
-	 cv::imwrite(name + "+proposed+" + std::to_string(matchesPro.size()) +"+"+std::to_string(matchesNoc.size())+ ".png", ground_render3);
+	 cv::imwrite(name + "+proposed+" + std::to_string(matches.size()) +"+"+std::to_string(matchesNoc.size())+ ".png", ground_render3);
 
 	 {
 		 cv::Mat ground_img = cv::imread(join_paths(dir, name + ".tif"), 1);
@@ -276,16 +276,29 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
 				 //cv::arrowedLine(render_img, key_ground.pt, key_render.pt, cv::Scalar(255, 0, 255, 255), 1);
 			 }
 		
-			 for (const auto &match : matchesPro) {				
+			 for (const auto &match : matches) {				
 				 auto key_ground = keys_ground.at(match.trainIdx);
                  auto key_render = keys_render.at(match.queryIdx);
                  // draw cross in images
                  {
+					 int crosssize = 5,thickness=2;
+					 cv::Scalar color(0, 255, 0,255);
+                      cv::line(ground_img, cv::Point(key_ground.pt.x - crosssize / 2, key_ground.pt.y),
+                              cv::Point(key_ground.pt.x + crosssize / 2, key_ground.pt.y), color, thickness, 8, 0);
+                     //绘制竖线
+                      cv::line(ground_img, cv::Point(key_ground.pt.x, key_ground.pt.y - crosssize / 2),
+                              cv::Point(key_ground.pt.x, key_ground.pt.y + crosssize / 2), color, thickness, 8, 0);
+
+                      cv::line(mat_rgb, cv::Point(key_render.pt.x - crosssize / 2, key_render.pt.y),
+                              cv::Point(key_render.pt.x + crosssize / 2, key_render.pt.y), color, thickness, 8, 0);
+                     //绘制竖线
+                      cv::line(mat_rgb, cv::Point(key_render.pt.x, key_render.pt.y - crosssize / 2),
+                              cv::Point(key_render.pt.x, key_render.pt.y + crosssize / 2), color, thickness, 8, 0);
                      cv::arrowedLine(ground_img_clone, key_render.pt, key_ground.pt, cv::Scalar(255, 0, 255), 3, 8, 0,0.3);                    
                  }
 			 }
 		 }
-		 std::string r2gName = name + "+r2g+lineintersect.png", siftG2RName = name +"+"+std::to_string(matchesPro.size())+ "+LRCF.png";
+		 std::string r2gName = name + "+r2g+lineintersect.png", siftG2RName = name +"+"+std::to_string(matches.size())+ "+LRCF.png";
 
 		 //cv::imwrite(r2gName, ground_img);
 		 cv::imwrite(siftG2RName, ground_img_clone);
@@ -445,7 +458,7 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
             cv::Point pos;
             cv::minMaxLoc(ncc, nullptr, &ncc_max, nullptr, &pos);
 
-            param_.ncc_threshold = 0.7;
+            param_.ncc_threshold = 0.75;
             if (ncc_max < param_.ncc_threshold) {
                 continue;
             }
@@ -859,10 +872,6 @@ Vector3f RenderMatcher::depth_to_xyz(float depth, const Vector2i &point) {
 
 
 
-
-
-
-
 cv::Mat RenderMatcher::draw_matches(uint32_t iid_ground, uint32_t iid_aerial, const RenderMatchResults &matches, cv::Scalar color)
 {
     std::vector<cv::KeyPoint> keys_ground, keys_aerial;
@@ -958,5 +967,5 @@ cv::Mat RenderMatcher::draw_matches(uint32_t iid_ground, uint32_t iid_aerial, co
         }
     }
 	std::cout << "匹配点数：" << countKey << std::endl;
-    return ter_aer_mat_vertical;
+    return ter_aer_mat;
 }
