@@ -37,6 +37,7 @@ void SiftMatcher::set_train_data(const FeaturePoints &features, const cv::Mat &d
     set_train_data(keys, desc);
 }
 
+/*sift with ransac*/
 std::vector<cv::DMatch> SiftMatcher::match(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc) {
 
     CHECK(qkeys.size() == qdesc.rows);
@@ -87,7 +88,7 @@ std::vector<cv::DMatch> SiftMatcher::matchSift(const std::vector<cv::KeyPoint> &
 }
 
 
-/*wzd add length constraint*/
+/*line intersection check*/
 
 bool lineIntersection(std::vector<float> l1, std::vector<float> l2){
 	//l1->[dist,x1,y1,x2,y2],l2->[dist,x3,y3,x4,y4]
@@ -149,111 +150,110 @@ bool lineIntersection(cv::DMatch match1, cv::DMatch match2, std::vector<cv::KeyP
         }
     }
 }
-std::vector<cv::DMatch> SiftMatcher::match(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc,
-                                           std::vector<cv::KeyPoint> keys_ground,
-                                           std::vector<cv::KeyPoint> keys_render) {
+//std::vector<cv::DMatch> SiftMatcher::match(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc,
+//                                           std::vector<cv::KeyPoint> keys_ground,
+//                                           std::vector<cv::KeyPoint> keys_render) {
+//
+//	std::vector<cv::DMatch> lenMatches,matchesOut;
+//
+//    CHECK(qkeys.size() == qdesc.rows);
+//    const int K = 2;
+//    const int N = qdesc.rows;
+//    std::vector<uint32_t> argmins(K * N, (uint32_t)-1), mins(K * N, (uint32_t)-1);
+//    index_->search_knn(qdesc.data, qdesc.rows, 2, argmins.data(), mins.data());
+//
+//    std::vector<cv::DMatch> matches;
+//    matches.reserve(N);
+//
+//    for (int i = 0; i < N; ++i) {
+//        if ((float)mins[i * K] / mins[i * K + 1] < param_.nn_ratio) {
+//            matches.emplace_back(i, argmins[i * K], (float)mins[i * K]);
+//        }
+//    }
+//
+//	std::vector < std::vector<float> > dists;
+//
+//	//std::ofstream distFile;
+//	//distFile.open("dist1.csv", std::ios::out | std::ios::trunc);
+//	for (const auto &match : matches) {		
+//		auto key_ground = keys_ground.at(match.trainIdx);
+//		auto key_render = keys_render.at(match.queryIdx);
+//		float keyDist =
+//			std::powf((key_ground.pt.x - key_render.pt.x), 2) + std::powf((key_ground.pt.y - key_render.pt.y), 2);
+//       
+//		//distFile << keyDist << std::endl;
+//		
+//		std::vector<float> keyInfo;
+//		keyInfo.push_back(keyDist);
+//		keyInfo.push_back(keys_render.at(match.queryIdx).pt.x);
+//		keyInfo.push_back( keys_render.at(match.queryIdx).pt.y);
+//        keyInfo.push_back(keys_ground.at(match.trainIdx).pt.x);
+//        keyInfo.push_back(keys_ground.at(match.trainIdx).pt.y);
+//
+//		dists.push_back(keyInfo);
+//
+//		/*if (std::sqrt(keyDist) < 200) {
+//	  lenMatches.push_back(match);
+//  }*/
+//		keyInfo.clear();
+//	}
+//	//distFile.close();
+//
+//	/*sort the matches by the distance*/
+//	bool isLoop = true;
+//    for (int i = dists.size(); true == isLoop && i > 0; --i) {
+//        isLoop == false;
+//        for (int j = 1; j < i; ++j) {
+//            if (dists[j][0] < dists[j - 1][0]) {
+//                std::vector<float> temp;
+//				cv::DMatch tempMatch;
+//				cv::KeyPoint tempKey;
+//                temp = dists[j];
+//				tempMatch = matches[j];
+//				tempKey = qkeys[j];
+//
+//                dists[j] = dists[j - 1];
+//				matches[j] = matches[j - 1];
+//
+//                dists[j - 1] = temp;
+//				matches[j - 1] = tempMatch;
+//            }
+//        }
+//    }	
+//	for (int i=0;i<matches.size();i++)
+//	{
+//		auto itc = matches.begin();
+//		auto itct = dists.begin();
+//		for (int j=i+1;j<matches.size();j++)
+//		{
+//			if (i==matches.size()-1)
+//			{
+//				break;
+//			}
+//			else if (lineIntersection(matches[i], matches[j], keys_render, keys_ground)||dists[j][0]>500)
+//			{
+//				matches.erase(itc + j);
+//				itc--;
+//				dists.erase(itct + j);
+//				itct--;
+//			}
+//		}
+//	}
+//	
+//    if (param_.model == 0) {
+//		matches = acransac::acransac_homography(matches, keys_, qkeys, param_.sac_threshold);
+//    } else if (param_.model == 1) {
+//		matches = acransac::acransac_fundamental(matches, keys_, qkeys, param_.sac_threshold);
+//    } else if (param_.model == 3) {
+//		matches = acransac::acransac_translation(matches, keys_, qkeys, param_.sac_threshold);
+//    } else if (param_.model == 2) {
+//		matches = acransac::acransac_fundamental(matches, keys_, qkeys, param_.sac_threshold);
+//    }
+//    return retain_best_matches(qkeys, matches);
+//   
+//}
 
-	std::vector<cv::DMatch> lenMatches,matchesOut;
-
-    CHECK(qkeys.size() == qdesc.rows);
-    const int K = 2;
-    const int N = qdesc.rows;
-    std::vector<uint32_t> argmins(K * N, (uint32_t)-1), mins(K * N, (uint32_t)-1);
-    index_->search_knn(qdesc.data, qdesc.rows, 2, argmins.data(), mins.data());
-
-    std::vector<cv::DMatch> matches;
-    matches.reserve(N);
-
-    for (int i = 0; i < N; ++i) {
-        if ((float)mins[i * K] / mins[i * K + 1] < param_.nn_ratio) {
-            matches.emplace_back(i, argmins[i * K], (float)mins[i * K]);
-        }
-    }
-
-	std::vector < std::vector<float> > dists;
-
-	//std::ofstream distFile;
-	//distFile.open("dist1.csv", std::ios::out | std::ios::trunc);
-	for (const auto &match : matches) {		
-		auto key_ground = keys_ground.at(match.trainIdx);
-		auto key_render = keys_render.at(match.queryIdx);
-		float keyDist =
-			std::powf((key_ground.pt.x - key_render.pt.x), 2) + std::powf((key_ground.pt.y - key_render.pt.y), 2);
-       
-		//distFile << keyDist << std::endl;
-		
-		std::vector<float> keyInfo;
-		keyInfo.push_back(keyDist);
-		keyInfo.push_back(keys_render.at(match.queryIdx).pt.x);
-		keyInfo.push_back( keys_render.at(match.queryIdx).pt.y);
-        keyInfo.push_back(keys_ground.at(match.trainIdx).pt.x);
-        keyInfo.push_back(keys_ground.at(match.trainIdx).pt.y);
-
-		dists.push_back(keyInfo);
-
-		/*if (std::sqrt(keyDist) < 200) {
-	  lenMatches.push_back(match);
-  }*/
-		keyInfo.clear();
-	}
-	//distFile.close();
-
-	/*sort the matches by the distance*/
-	bool isLoop = true;
-    for (int i = dists.size(); true == isLoop && i > 0; --i) {
-        isLoop == false;
-        for (int j = 1; j < i; ++j) {
-            if (dists[j][0] < dists[j - 1][0]) {
-                std::vector<float> temp;
-				cv::DMatch tempMatch;
-				cv::KeyPoint tempKey;
-                temp = dists[j];
-				tempMatch = matches[j];
-				tempKey = qkeys[j];
-
-                dists[j] = dists[j - 1];
-				matches[j] = matches[j - 1];
-
-                dists[j - 1] = temp;
-				matches[j - 1] = tempMatch;
-            }
-        }
-    }	
-	for (int i=0;i<matches.size();i++)
-	{
-		auto itc = matches.begin();
-		auto itct = dists.begin();
-		for (int j=i+1;j<matches.size();j++)
-		{
-			if (i==matches.size()-1)
-			{
-				break;
-			}
-			else if (lineIntersection(matches[i], matches[j], keys_render, keys_ground)||dists[j][0]>500)
-			{
-				matches.erase(itc + j);
-				itc--;
-				dists.erase(itct + j);
-				itct--;
-			}
-		}
-	}
-	
-    param_.model = 1;
-    if (param_.model == 0) {
-		matches = acransac::acransac_homography(matches, keys_, qkeys, param_.sac_threshold);
-    } else if (param_.model == 1) {
-		matches = acransac::acransac_fundamental(matches, keys_, qkeys, param_.sac_threshold);
-    } else if (param_.model == 3) {
-		matches = acransac::acransac_translation(matches, keys_, qkeys, param_.sac_threshold);
-    } else if (param_.model == 2) {
-		matches = acransac::acransac_fundamental(matches, keys_, qkeys, param_.sac_threshold);
-    }
-    return retain_best_matches(qkeys, matches);
-    //return matches;
-}
-
-/*proposed only*/
+/*sift+ proposed + ransac*/
 std::vector<cv::DMatch> SiftMatcher::matchp(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc,
 	std::vector<cv::KeyPoint> keys_ground,
 	std::vector<cv::KeyPoint> keys_render) {

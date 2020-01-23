@@ -196,9 +196,7 @@ int main()
 	{
 		const std::string imgpath = p["ImagePath"];
 		std::string ipath = get_directory(imgpath);
-		//auto ipath2 = get_filename_noext(imgpath);
-		//std::cout << imgpath << std::endl;
-		//cv::Mat mmat = cv::imread("D:/image data/uav-ter/UAV and Terrestrial/RELEASE_FOLDER/UAV/DSC07022.JPG");
+	
 		if (cv::imread(imgpath, 1).empty()) {
 			std::cout << p["Id"] << std::endl;
 		}
@@ -212,65 +210,6 @@ int main()
 
 	int trackId = 0, measureId = 0;
 
-#ifdef REGULAR_TRACK2
-	for (int i = 0; i < TrackNew.size(); i++)
-	{
-		tieTemplate["Name"] = std::to_string(i);
-		tieTemplate["Type"] = "User";
-		measureId = (TrackNew[i].size() - 4) / 3;//减去三个xyz坐标点，除以图像索引id和点位xy
-		/*std::cout << tieTemplate["Measurement"][0]["PhotoId"] << std::endl;
-		std::cout << tieTemplate["Measurement"][0]["x"] << std::endl;
-		std::cout << tieTemplate["Measurement"][0]["y"] << std::endl;*/
-		for (int j = 0; j < measureId; j++)
-		{
-
-			int PhotoId = TrackNew[i][j * 3 + 3];
-			float phoX = TrackNew[i][j * 3 + 3 + 1], phoY = TrackNew[i][j * 3 + 3 + 2];
-			tieTemplate["Measurement"][j]["PhotoId"] = std::to_string(PhotoId);
-			tieTemplate["Measurement"][j]["x"] = std::to_string(phoX);
-			tieTemplate["Measurement"][j]["y"] = std::to_string(phoY);
-			std::cout << tieTemplate["Measurement"][j]["PhotoId"] << std::endl;
-			std::cout << tieTemplate["Measurement"][j]["x"] << std::endl;
-			std::cout << tieTemplate["Measurement"][j]["y"] << std::endl;
-		}
-		std::cout << std::setw(2) << tieTemplate << std::endl;
-		TiePoints.push_back(tieTemplate);
-		//tieTemplate = TiePoints[0];
-		tieTemplate.clear();
-
-	}
-#endif
-#ifdef REGULAR_TRACK
-	for (int i = 0; i < TrackNew.size(); i++)
-	{
-		tieTemplate["Name"] = std::to_string(i);
-		tieTemplate["Type"] = "User";
-		measureId = (TrackNew[i].size() - 4) / 3;//减去三个xyz坐标点，除以图像索引id和点位xy
-		/*std::cout << tieTemplate["Measurement"][0]["PhotoId"] << std::endl;
-		std::cout << tieTemplate["Measurement"][0]["x"] << std::endl;
-		std::cout << tieTemplate["Measurement"][0]["y"] << std::endl;*/
-		for (int j = 0; j < measureId; j++)
-		{
-
-			int PhotoId = TrackNew[i][j * 3 + 4];
-			float phoX = TrackNew[i][j * 3 + 4 + 1], phoY = TrackNew[i][j * 3 + 4 + 2];
-			tieTemplate["Measurement"][j]["PhotoId"] = std::to_string(PhotoId);
-			tieTemplate["Measurement"][j]["x"] = std::to_string(phoX);
-			tieTemplate["Measurement"][j]["y"] = std::to_string(phoY);
-			/*std::cout << tieTemplate["Measurement"][j]["PhotoId"] << std::endl;
-			std::cout << tieTemplate["Measurement"][j]["x"] << std::endl;
-			std::cout << tieTemplate["Measurement"][j]["y"] << std::endl;*/
-		}
-		//std::cout << std::setw(2) << tieTemplate << std::endl;
-		TiePoints.push_back(tieTemplate);
-		//tieTemplate = TiePoints[0];
-		tieTemplate.clear();
-
-	}
-#endif
-
-
-	//std::ofstream savej("E:\\temp file\\keysAndtrack\\tiepointsFromAgisoft\\tiesRectify\\test2.json");//"E:\temp file\makeTrack\pointsCloud\track2json.json"
 	std::ofstream savej(savePath);
 	savej << std::setw(2) << jFile;
 

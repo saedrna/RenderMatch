@@ -1,4 +1,4 @@
-/*
+Ôªø/*
  * @Author: Han
  * @Date: 2019-11-15 20:01:59
  * The pipeline for render image and aerial-ground match with rendered images as delegates
@@ -24,11 +24,9 @@
 
 using namespace h2o;
 
-void drawCross(cv::Mat img, cv::Point point, cv::Scalar color, int size, int thickness) {
-    //ªÊ÷∆∫·œﬂ
+void drawCross(cv::Mat img, cv::Point point, cv::Scalar color, int size, int thickness) {    
     cv::line(img, cv::Point(point.x - size / 2, point.y), cv::Point(point.x + size / 2, point.y), color, thickness, 8,
-             0);
-    //ªÊ÷∆ ˙œﬂ
+             0);    
     cv::line(img, cv::Point(point.x, point.y - size / 2), cv::Point(point.x, point.y + size / 2), color, thickness, 8,
              0);
 }
@@ -96,6 +94,10 @@ struct ScreenShot : public osg::Camera::DrawCallback {
 int main(int argc, char **argv) {
     GDALAllRegister();
 
+	// set original transform
+    Eigen::Vector3d originCoord;
+    originCoord << 402971, 3406101, 0;
+
     cxxopts::Options options("RenderMeshMatch",
                              "The pipeline for render image and aerial-ground match with rendered images as delegates");
 
@@ -125,8 +127,10 @@ int main(int argc, char **argv) {
     RenderMeshMatchConfig param = load_config(path_config);
     //param.ncc_search = 101;
 
-    h2o::Block block_aerial = load_block(path_aerial_at);
-    h2o::Block block_ground = load_block(path_ground_at);
+	
+
+    h2o::Block block_aerial = load_block(path_aerial_at,originCoord);
+    h2o::Block block_ground = load_block(path_ground_at,originCoord);
     h2o::Block block_ground_rectified = undistort_block(block_ground);
 
     osgViewer::Viewer viewer;
@@ -217,7 +221,7 @@ int main(int argc, char **argv) {
 
         // set up the viewport
         auto photos = pgroup.photos;
-        for (uint32_t iid /*: photos*/ = 4; iid < photos.size(); iid++) {
+        for (uint32_t iid = 0; iid < photos.size(); iid++) {
             Photo photo = block_ground_rectified.photos.at(iid);
 
             // near and far are used to determine the projection matrix in ogl
@@ -257,13 +261,6 @@ int main(int argc, char **argv) {
             screen_shot->set_iid(INVALID_INDEX);
 
             // there are at most 21 levels, and each frame will request all the nodes in the next level
-
-            // viewer.run();
-            /*	 for (int i = 0; i < 100; i++)
-                {
-                        viewer.frame();
-                }*/
-
             for (int i = 0; i < 21; ++i) {
                 viewer.frame();
                 int node_num = viewer.getDatabasePager()->getFileRequestListSize();
@@ -294,44 +291,7 @@ int main(int argc, char **argv) {
             RenderMatchResults results_image = matcher.match(iid, *mat_rgb, *mat_dep);
             match_results.insert(end(match_results), begin(results_image), end(results_image));
 
-			/*–¥Œ™Track*/
-
-			//std::string trackpath = "track2.txt";
-   //         std::ofstream outputFile;
-   //         outputFile.open(trackpath, std::ios::app);
-   //         for (int i = 0; i < results_image.size(); i++) {
-   //             outputFile << 0 << " ";
-   //             outputFile << results_image[i].xyz.x() << " ";
-   //             outputFile << results_image[i].xyz.y() << " ";
-   //             outputFile << results_image[i].xyz.z() << " ";
-   //             outputFile << results_image[i].iid_ground << " ";
-   //             outputFile << results_image[i].pt_ground.x() << " ";
-   //             outputFile << results_image[i].pt_ground.y() << " ";
-   //             for (int j = 0; j < results_image[i].iid_aerial.size(); j++) {
-   //                 if (1/*results_image[i].iid_aerial[j]<=2*/)
-   //                 {
-   //                     outputFile << results_image[i].iid_aerial[j] + 192 << " ";
-   //                 }
-   //                 else
-   //                 {
-   //                     outputFile << results_image[i].iid_aerial[j] + 202 << " ";
-   //                 }
-   //                 
-
-   //                 outputFile << results_image[i].pt_aerial[j].x() << " ";
-   //                 outputFile << results_image[i].pt_aerial[j].y() << " ";
-   //             }
-   //             outputFile << " \n";
-   //         }
-
-   //         outputFile.close();
-			
-
-			/*std::string path_ground = block_ground_.photos.at(iid_ground).path;
-            std::string path_aerial = block_aerial_.photos.at(iid_aerial).path;
-
-            cv::Mat mat_ground = cv::imread(path_ground, cv::IMREAD_UNCHANGED);
-            cv::Mat mat_aerial = cv::imread(path_aerial, cv::IMREAD_UNCHANGED);*/           		
+		       		
 
 			
            // if (iid == 0) {

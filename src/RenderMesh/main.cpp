@@ -321,7 +321,7 @@ int main(int argc, char **argv) {
 
         // set up the viewport
         auto photos = pgroup.photos;
-        for (uint32_t iid = 21; iid < 23;iid++/* : photos*/) {
+        for (uint32_t iid = 0; iid < photos.size();iid++) {
             Photo photo = rectified.photos.at(iid);
 
             // near and far are used to determine the projection matrix in ogl

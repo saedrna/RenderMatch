@@ -203,6 +203,7 @@ Block load_block(const std::string &path) {
     nlohmann::json j;
     Vector3d originCoord;
 	originCoord << 402971, 3406101, 0;
+	
     {
         QFile file(QString::fromStdString(path));
         file.open(QFile::ReadOnly);
@@ -369,6 +370,179 @@ Block load_block(const std::string &path) {
 
     return Block();
 }
+
+Block load_block(const std::string &path, Eigen::Vector3d originCoord) {
+
+    nlohmann::json j;
+    //Vector3d originCoord;
+
+    {
+        QFile file(QString::fromStdString(path));
+        file.open(QFile::ReadOnly);
+        std::string data = QTextStream(&file).readAll().toStdString();
+        std::istringstream ss(data);
+        ss >> j;
+    }
+
+    auto block = j["BlocksExchange"]["Block"];
+    if (block.empty()) {
+        return Block();
+    }
+
+    std::vector<nlohmann::json> groups;
+    if (block["Photogroups"]["Photogroup"].is_array()) {
+        groups = block["Photogroups"]["Photogroup"].get<std::vector<nlohmann::json>>();
+    } else {
+        groups.push_back(block["Photogroups"]["Photogroup"]);
+    }
+
+    PhotoGroups block_photogroups;
+    Photos block_photos;
+
+    for (int cid = 0; cid < groups.size(); ++cid) {
+        PhotoGroup block_photogroup;
+
+        int width, height;
+        double focal_pixel;
+        double dx, dy;
+        double k1(0.0), k2(0.0), k3(0.0), p1(0.0), p2(0.0);
+
+        nlohmann::json g = groups[cid];
+        width = g["ImageDimensions"]["Width"];
+        height = g["ImageDimensions"]["Height"];
+        focal_pixel = g["FocalLengthPixels"];
+
+        if (g.find("PrincipalPoint") != g.end()) {
+            dx = g["PrincipalPoint"]["x"];
+            dy = g["PrincipalPoint"]["y"];
+        } else {
+            dx = (width - 1.0) / 2.0;
+            dy = (height - 1.0) / 2.0;
+        }
+
+        if (g.find("Distortion") != g.end()) {
+            k1 = g["Distortion"]["K1"];
+            k2 = g["Distortion"]["K2"];
+            k3 = g["Distortion"]["K3"];
+            p1 = g["Distortion"]["P1"];
+            p2 = g["Distortion"]["P2"];
+        }
+
+        Matrix3d K = Matrix3d::Identity();
+        K(0, 0) = K(1, 1) = focal_pixel;
+        K(0, 2) = dx;
+        K(1, 2) = dy;
+        std::vector<double> distortion;
+        distortion.push_back(k1);
+        distortion.push_back(k2);
+        distortion.push_back(p1);
+        distortion.push_back(p1);
+        distortion.push_back(k3);
+
+        block_photogroup.f = focal_pixel;
+        block_photogroup.width = width;
+        block_photogroup.height = height;
+        block_photogroup.u0 = dx;
+        block_photogroup.v0 = dy;
+        block_photogroup.K = K;
+        block_photogroup.k1 = k1;
+        block_photogroup.k2 = k2;
+        block_photogroup.k3 = k3;
+        block_photogroup.p1 = p1;
+        block_photogroup.p1 = p2;
+
+        Matrix3d O = Matrix3d::Identity();
+        if (g.find("CameraOrientation") != g.end()) {
+            std::string co = g["CameraOrientation"];
+            if (co == "XRightYDown") {
+                O << 1, 0, 0, 0, 1, 0, 0, 0, 1;
+            } else if (co == "XLeftYDown") {
+                O << -1, 0, 0, 0, 1, 0, 0, 0, -1;
+            } else if (co == "XLeftYUp") {
+                O << -1, 0, 0, 0, -1, 0, 0, 0, 1;
+            } else if (co == "XRightYUp") {
+                O << 1, 0, 0, 0, -1, 0, 0, 0, -1;
+            } else if (co == "XDownYRight") {
+                O << 0, 1, 0, 1, 0, 0, 0, 0, -1;
+            } else if (co == "XDownYLeft") {
+                O << 0, -1, 0, 1, 0, 0, 0, 0, 1;
+            } else if (co == "XUpYLeft") {
+                O << 0, -1, 0, -1, 0, 0, 0, 0, -1;
+            } else if (co == "XUpYRight") {
+                O << 0, 1, 0, -1, 0, 0, 0, 0, 1;
+            }
+        }
+
+        std::vector<nlohmann::json> photos;
+        if (g["Photo"].is_array()) {
+            photos = g["Photo"].get<std::vector<nlohmann::json>>();
+        } else {
+            photos.push_back(g["Photo"]);
+        }
+
+        std::vector<uint32_t> photo_iids;
+
+        for (const auto &p : photos) {
+            iid_t iid = p["Id"];
+            std::string path = p["ImagePath"];
+
+            Matrix3d R;
+
+            if (p.find("Pose") == p.end() || p["Pose"].find("Rotation") == p["Pose"].end() ||
+                p["Pose"].find("Center") == p["Pose"].end()) {
+                continue;
+            }
+            // AT file has many formations and to be simple we only accept rotation matrix
+            if (p["Pose"]["Rotation"].find("M_00") == p["Pose"]["Rotation"].end()) {
+                continue;
+            }
+
+            R(0, 0) = p["Pose"]["Rotation"]["M_00"];
+            R(0, 1) = p["Pose"]["Rotation"]["M_01"];
+            R(0, 2) = p["Pose"]["Rotation"]["M_02"];
+            R(1, 0) = p["Pose"]["Rotation"]["M_10"];
+            R(1, 1) = p["Pose"]["Rotation"]["M_11"];
+            R(1, 2) = p["Pose"]["Rotation"]["M_12"];
+            R(2, 0) = p["Pose"]["Rotation"]["M_20"];
+            R(2, 1) = p["Pose"]["Rotation"]["M_21"];
+            R(2, 2) = p["Pose"]["Rotation"]["M_22"];
+
+            R = O * R;
+
+            double x = p["Pose"]["Center"]["x"];
+            double y = p["Pose"]["Center"]["y"];
+            double z = p["Pose"]["Center"]["z"];
+
+            double znear = p["NearDepth"];
+            double zmed = p["MedianDepth"];
+            double zfar = p["FarDepth"];
+
+            Photo block_photo;
+            block_photo.id = iid;
+            block_photo.cid = cid;
+            block_photo.path = path;
+            block_photo.C = Vector3d(x, y, z) - originCoord;
+            block_photo.R = R;
+            block_photo.znear = znear;
+            block_photo.zmed = zmed;
+            block_photo.zfar = zfar;
+
+            block_photos.emplace(iid, block_photo);
+            photo_iids.push_back(iid);
+        }
+        block_photogroup.photos = photo_iids;
+        block_photogroups.emplace(cid, block_photogroup);
+    }
+
+    Block exchange;
+    exchange.photos = block_photos;
+    exchange.groups = block_photogroups;
+
+    return exchange;
+
+    return Block();
+}
+
 
 void save_block(const std::string &path, const Block &block) {
     nlohmann::json j;
