@@ -24,11 +24,16 @@
 
 using namespace h2o;
 
-void drawCross(cv::Mat img, cv::Point point, cv::Scalar color, int size, int thickness) {    
-    cv::line(img, cv::Point(point.x - size / 2, point.y), cv::Point(point.x + size / 2, point.y), color, thickness, 8,
-             0);    
-    cv::line(img, cv::Point(point.x, point.y - size / 2), cv::Point(point.x, point.y + size / 2), color, thickness, 8,
-             0);
+ Eigen::Vector3d load_trans(std::string originCoord_at) {
+    Eigen::Vector3d originCoords;
+    std::string token;
+    std::stringstream ss(originCoord_at);
+    for (int i = 0; i < 3; i++) {
+        if (std::getline(ss, token, ',')) {
+            originCoords[i] = std::stod(token);
+        }
+    }
+    return originCoords;
 }
 
 struct ScreenShot : public osg::Camera::DrawCallback {
@@ -93,11 +98,7 @@ struct ScreenShot : public osg::Camera::DrawCallback {
 
 int main(int argc, char **argv) {
     GDALAllRegister();
-
-	// set original transform
-    Eigen::Vector3d originCoord;
-    originCoord << 393491, 5707787, 0;
-
+	
     cxxopts::Options options("RenderMeshMatch",
                              "The pipeline for render image and aerial-ground match with rendered images as delegates");
 
@@ -105,6 +106,7 @@ int main(int argc, char **argv) {
     std::string path_aerial_at;
     std::string path_model;
     std::string path_config;
+    std::string originCoord_at;
 
     // clang-format off
     options.add_options("RenderMeshMatch")
@@ -112,6 +114,7 @@ int main(int argc, char **argv) {
         ("g,ground", "Ground AT file", cxxopts::value(path_ground_at))
         ("m,model", "Path to the mesh", cxxopts::value(path_model))
         ("c,config", "Path to the match parameters", cxxopts::value(path_config))
+		("t,transform","original coordinate", cxxopts::value(originCoord_at))
         ("h,help", "Print this help message");
     // clang-format on
 
@@ -125,9 +128,9 @@ int main(int argc, char **argv) {
     path_aerial_at = QFileInfo(QString::fromLocal8Bit(path_aerial_at.c_str())).absoluteFilePath().toStdString();
     path_model = QFileInfo(QString::fromLocal8Bit(path_model.c_str())).absoluteFilePath().toStdString();
     RenderMeshMatchConfig param = load_config(path_config);
-    //param.ncc_search = 101;
-
+	Eigen::Vector3d originCoord = load_trans(originCoord_at); 
 	
+    
 
     h2o::Block block_aerial = load_block(path_aerial_at,originCoord);
     h2o::Block block_ground = load_block(path_ground_at,originCoord);
@@ -290,13 +293,6 @@ int main(int argc, char **argv) {
             matcher.set_ogl_matrices(eview, eproj);
             RenderMatchResults results_image = matcher.match(iid, *mat_rgb, *mat_dep);
             match_results.insert(end(match_results), begin(results_image), end(results_image));
-
-			cv::Mat mat;
-           if (iid == 0) {
-			mat = matcher.draw_matches(iid, 0, match_results, cv::Scalar(0,255,0,0));
-            cv::imwrite(std::to_string(iid)+"test.jpg", mat);
-
-          }
         }
     }
 

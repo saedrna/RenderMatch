@@ -71,7 +71,7 @@ bool lineIntersection(cv::DMatch match1, cv::DMatch match2, std::vector<cv::KeyP
 }
 
 /* #1.SIFT retio check */
-std::vector<cv::DMatch> SiftMatcher::matchSift(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc) {
+std::vector<cv::DMatch> SiftMatcher::match_sift(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc) {
 
     CHECK(qkeys.size() == qdesc.rows);
     const int K = 2;
@@ -92,7 +92,7 @@ std::vector<cv::DMatch> SiftMatcher::matchSift(const std::vector<cv::KeyPoint> &
 }
 
 /* #2.SIFT+ransac only */
-std::vector<cv::DMatch> SiftMatcher::matchRANSAC(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc) {
+std::vector<cv::DMatch> SiftMatcher::match_RANSAC(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc) {
 
     CHECK(qkeys.size() == qdesc.rows);
     const int K = 2;
@@ -119,7 +119,7 @@ std::vector<cv::DMatch> SiftMatcher::matchRANSAC(const std::vector<cv::KeyPoint>
     return retain_best_matches(qkeys, matches);
 }
 /* #3.SIFT+Proposed+ransac */
-std::vector<cv::DMatch> SiftMatcher::matchProposed(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc,
+std::vector<cv::DMatch> SiftMatcher::match_proposed(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc,
                                                    std::vector<cv::KeyPoint> keys_ground,
                                                    std::vector<cv::KeyPoint> keys_render) {
 
@@ -261,7 +261,7 @@ IndexMatches SiftMatcher::match(const FeaturePoints &features, const cv::Mat &de
     std::vector<cv::KeyPoint> keys(features.size());
     std::transform(begin(features), end(features), begin(keys),
                    [](const Vector2f &feat) { return cv::KeyPoint(feat.x(), feat.y(), 9.0); });
-    std::vector<cv::DMatch> matches = matchRANSAC(keys, desc);
+    std::vector<cv::DMatch> matches = match_RANSAC(keys, desc);
     IndexMatches matches_out(matches.size());
     std::transform(begin(matches), end(matches), begin(matches_out),
                    [](const cv::DMatch &dmatch) { return IndexMatch(dmatch.trainIdx, dmatch.queryIdx); });

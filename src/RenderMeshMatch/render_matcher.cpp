@@ -16,10 +16,13 @@
 
 #include <Eigen/Jacobi>
 #include <fstream>
+#include<istream>
 #include <iostream>
+#include <sstream>
 #include <nlohmann/json.hpp>
 
 #include <stdio.h>
+
 
 void imgSubt(cv::Mat &imgRac, cv::Mat &imgOur) {
 	for (int i=0;i<imgRac.rows;i++)
@@ -34,14 +37,13 @@ void imgSubt(cv::Mat &imgRac, cv::Mat &imgOur) {
 				}
 				if (imgOur.at<cv::Vec3b>(i, j) == cv::Vec3b(255,0, 0))
 				{
-					imgOur.at<cv::Vec3b>(i, j) = cv::Vec3b(0, 255, 0);
-					
+					imgOur.at<cv::Vec3b>(i, j) = cv::Vec3b(0, 255, 0);					
 				}				
 			}
 		}
 	}
 }
-cv::Mat drawRenderMatch(cv::Mat mat_ground, cv::Mat mat_aerial, std::vector<cv::DMatch> matches, std::vector<cv::KeyPoint> keys_render, std::vector<cv::KeyPoint> keys_ground,cv::Scalar &color=cv::Scalar(0,255,0,0),int thickness=7)
+cv::Mat draw_render_match(cv::Mat mat_ground, cv::Mat mat_aerial, std::vector<cv::DMatch> matches, std::vector<cv::KeyPoint> keys_render, std::vector<cv::KeyPoint> keys_ground,cv::Scalar &color=cv::Scalar(0,255,0,0),int thickness=7)
 {
 	auto mat_ground_size = mat_ground.size();
 
@@ -120,14 +122,7 @@ void RenderMatcher::set_ogl_matrices(const Matrix4f &view, const MatrixXf &proj)
     mvp_inverse_ = (proj * view).inverse();
 }
 
-RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, const cv::Mat &mat_dep) {
-
-     //std::string folderPath = std::to_string(iid);
-     //std::string command;
-     //command = "mkdir  " /*+std::to_string(iid)*/ + folderPath;
-     //system(command.c_str());
-
-    // initialize viewpoint
+RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, const cv::Mat &mat_dep) {     
     viewport_.x() = mat_dep.cols;
     viewport_.y() = mat_dep.rows;
 
@@ -174,50 +169,17 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
     sift_matcher.set_train_data(keys_ground, desc_ground);
 
 	/* #1.SIFT retio check */
-	std::vector<cv::DMatch> matchesSift = sift_matcher.matchSift(keys_render, desc_render);
-    cv::Mat g_r_SIFT = drawRenderMatch(render_img, mat_ground, matchesSift, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0), 1);
+	std::vector<cv::DMatch> matchesSift = sift_matcher.match_sift(keys_render, desc_render);
+    cv::Mat g_r_SIFT = draw_render_match(render_img, mat_ground, matchesSift, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0), 1);
 
 	/* #2.SIFT+ransac only */
-     std::vector<cv::DMatch> matchesRANSAC = sift_matcher.matchRANSAC(keys_render, desc_render);
-    cv::Mat &g_r_RANSAC = drawRenderMatch(render_img, mat_ground, matchesRANSAC, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0));
+     std::vector<cv::DMatch> matchesRANSAC = sift_matcher.match_RANSAC(keys_render, desc_render);
+    cv::Mat &g_r_RANSAC = draw_render_match(render_img, mat_ground, matchesRANSAC, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0));
 
 	  /* #3.SIFT+Proposed+ransac */
-    std::vector<cv::DMatch> matches = sift_matcher.matchProposed(keys_render, desc_render, keys_ground, keys_render);
-     cv::Mat &g_r_Proposed = drawRenderMatch(render_img, mat_ground, matches, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0));
-     
-	 /* overlapping results of proposed and ransac only */
-     imgSubt(g_r_RANSAC, g_r_Proposed); 
-	 cv::imwrite(name + "-proposed" + std::to_string(matches.size()) + "VSransac" + std::to_string(matchesRANSAC.size()) + ".png", g_r_Proposed);
-	 
-	 /* consistency result figure*/
-	 {
-		 cv::Mat ground_img = cv::imread(join_paths(dir, name + ".tif"), 1);
-		 cv::Mat ground_img_clone = ground_img.clone();
-         int crosssize = 5, thickness = 2;
-         cv::Scalar color(0, 255, 0, 255);
-		 for (const auto &match : matches) {
-			 auto key_ground = keys_ground.at(match.trainIdx);
-			 auto key_render = keys_render.at(match.queryIdx);			
-             cv::arrowedLine(ground_img, key_render.pt, key_ground.pt, cv::Scalar(255, 0, 255), 3, 8, 0, 0.3);
-			 for (const auto &match : matches) {				
-				 auto key_ground = keys_ground.at(match.trainIdx);
-                 auto key_render = keys_render.at(match.queryIdx);                 
-                 cv::line(ground_img, cv::Point(key_ground.pt.x - crosssize / 2, key_ground.pt.y),
-                          cv::Point(key_ground.pt.x + crosssize / 2, key_ground.pt.y), color, thickness, 8, 0);
-                 cv::line(ground_img, cv::Point(key_ground.pt.x, key_ground.pt.y - crosssize / 2),
-                          cv::Point(key_ground.pt.x, key_ground.pt.y + crosssize / 2), color, thickness, 8, 0);
-                 cv::line(mat_rgb, cv::Point(key_render.pt.x - crosssize / 2, key_render.pt.y),
-                          cv::Point(key_render.pt.x + crosssize / 2, key_render.pt.y), color, thickness, 8, 0);
-                 cv::line(mat_rgb, cv::Point(key_render.pt.x, key_render.pt.y - crosssize / 2),
-                          cv::Point(key_render.pt.x, key_render.pt.y + crosssize / 2), color, thickness, 8, 0);
-                 cv::arrowedLine(ground_img_clone, key_render.pt, key_ground.pt, cv::Scalar(255, 0, 255), 3, 8, 0, 0.3);                
-			 }
-		 }
-         std::string consistencyName = name + "-consistency.png";
-         cv::imwrite(consistencyName, ground_img_clone);
-	 }
-
-
+    std::vector<cv::DMatch> matches = sift_matcher.match_proposed(keys_render, desc_render, keys_ground, keys_render);
+     cv::Mat &g_r_Proposed = draw_render_match(render_img, mat_ground, matches, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0));     
+	
     // too few matches
     if (matches.size() < 10) {
         return RenderMatchResults();
