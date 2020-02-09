@@ -13,8 +13,6 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/calib3d.hpp>
 #include<opencv2/calib3d/calib3d.hpp>
-#include<cairo/cairo-svg.h>
-#include <cairo/cairo-pdf.h>
 
 #include <Eigen/Jacobi>
 #include <fstream>
@@ -22,32 +20,6 @@
 #include <nlohmann/json.hpp>
 
 #include <stdio.h>
-void drawMySVG(char *filename, std::vector<cv::DMatch> matches, std::vector<cv::KeyPoint> keys_ground, std::vector<cv::KeyPoint> keys_render)
-{
-cairo_t *cr;
-cairo_text_extents_t te;
-cairo_surface_t *png=cairo_image_surface_create_from_png(filename);
-cairo_surface_t *surface= cairo_pdf_surface_create("svg.pdf", 6000, 4000);
-cr = cairo_create(surface);
-
-int width = 6000, height = 4000;
-
-//draw
-cairo_set_source_surface(cr, png,0,0);
-//cairo_set_source_surface(cr, png, 1, 1);
-//cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-
-cairo_select_font_face(cr, "Georgia", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-cairo_set_font_size(cr, 20);
-cairo_text_extents(cr, "helloworld", &te);
-cairo_move_to(cr, width / 2 - te.width / 2 - te.x_bearing, height / 2 - te.height / 2 - te.y_bearing);
-cairo_show_text(cr, "helloworld");
-
-
-cairo_destroy(cr);
-cairo_surface_destroy(surface);
-
-}
 
 void imgSubt(cv::Mat &imgRac, cv::Mat &imgOur) {
 	for (int i=0;i<imgRac.rows;i++)
