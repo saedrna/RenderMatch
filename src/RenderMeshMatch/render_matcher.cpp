@@ -43,24 +43,18 @@ void imgSubt(cv::Mat &imgRac, cv::Mat &imgOur) {
 }
 cv::Mat drawRenderMatch(cv::Mat mat_ground, cv::Mat mat_aerial, std::vector<cv::DMatch> matches, std::vector<cv::KeyPoint> keys_render, std::vector<cv::KeyPoint> keys_ground,cv::Scalar &color=cv::Scalar(0,255,0,0),int thickness=7)
 {
-	
-	int crosssize = 180;
 	auto mat_ground_size = mat_ground.size();
 
 	if (mat_ground.type()!=mat_aerial.type())
 	{
 		cv::cvtColor(mat_ground, mat_ground, cv::COLOR_RGBA2RGB);
 	}
-	
-
-    std::cout << mat_ground.type() << "   " << mat_aerial.type() << std::endl;
-
 	if (mat_ground.size != mat_aerial.size)
 		cv::resize(mat_ground, mat_ground, cv::Size(mat_aerial.cols, mat_aerial.rows), 0, 0);
 
 	cv::Mat ter_aer_mat;
 	ter_aer_mat.create(std::max<int>(mat_ground.rows, mat_ground.rows), mat_ground.cols + mat_ground.cols,
-		mat_aerial.type()); // des.create()
+		mat_aerial.type()); 
 	cv::Mat r1 = ter_aer_mat(cv::Rect(0, 0, mat_ground.cols, mat_ground.rows));
 	mat_ground.copyTo(r1);
 	cv::Mat r2 = ter_aer_mat(cv::Rect(mat_ground.cols, 0, mat_ground.cols, mat_ground.rows));
@@ -68,22 +62,13 @@ cv::Mat drawRenderMatch(cv::Mat mat_ground, cv::Mat mat_aerial, std::vector<cv::
 
 	cv::Mat ter_aer_mat_vertical;
 	ter_aer_mat_vertical.create(mat_aerial.rows + mat_aerial.rows, mat_aerial.cols,
-		mat_aerial.type()); // des.create()
+		mat_aerial.type()); 
 	cv::Mat r11 = ter_aer_mat_vertical(cv::Rect(0, 0, mat_aerial.cols, mat_aerial.rows));
 	mat_ground.copyTo(r11);
 	cv::Mat r22 = ter_aer_mat_vertical(cv::Rect(0, mat_aerial.rows, mat_aerial.cols, mat_aerial.rows));
 	mat_aerial.copyTo(r22);	
-
-	int countKey = 0;
+	
 	for (const auto &match : matches) {
-
-
-		// cv::line(mat_aerial, cv::Point(key_aerial[i].x() - crosssize / 2, key_aerial[i].y()),
-		//         cv::Point(key_aerial[i].x() + crosssize / 2, key_aerial[i].y()), color, thickness, 8, 0);
-		////绘制竖线
-		// cv::line(mat_aerial, cv::Point(key_aerial[i].x(), key_aerial[i].y() - crosssize / 2),
-		//         cv::Point(key_aerial[i].x(), key_aerial[i].y() + crosssize / 2), color, thickness, 8, 0);
-
 		line(ter_aer_mat,
 			cv::Point(keys_render[match.queryIdx].pt.x * mat_aerial.cols / mat_ground_size.width,
 				keys_render[match.queryIdx].pt.y * mat_aerial.rows / mat_ground_size.height),
@@ -93,16 +78,6 @@ cv::Mat drawRenderMatch(cv::Mat mat_ground, cv::Mat mat_aerial, std::vector<cv::
 			cv::Point(keys_render[match.queryIdx].pt.x * mat_aerial.cols / mat_ground_size.width,
 				keys_render[match.queryIdx].pt.y * mat_aerial.rows / mat_ground_size.height),
 			cv::Point(keys_ground[match.trainIdx].pt.x, keys_ground[match.trainIdx].pt.y + mat_aerial.rows), color,thickness);
-
-		/*  circle(mat_ground,
-				 cv::Point(key_ground.x() * mat_aerial.cols / mat_ground_size.width,
-						   key_ground.y() * mat_aerial.rows / mat_ground_size.height),
-				 5, color, 5);
-		  circle(mat_aerial, cv::Point(key_aerial[i].x(), key_aerial[i].y()), 2, color, 3);*/
-
-
-
-
 	}
 	return ter_aer_mat;
 }
@@ -198,133 +173,50 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
     sift_matcher.set_match_param(sift_param);
     sift_matcher.set_train_data(keys_ground, desc_ground);
 
-	/*SIFT*/
+	/* #1.SIFT retio check */
 	std::vector<cv::DMatch> matchesSift = sift_matcher.matchSift(keys_render, desc_render);
-	cv::Mat ground_render_sift;
-	//drawMatches(render_img, keys_render, mat_ground, keys_ground, matchesSift, ground_render_sift, cv::Scalar::all(-1));
-   // cv::imwrite(name+"+sift+" + std::to_string(matchesSift.size())+".png", ground_render_sift);
-    cv::Mat ground_renderSift = drawRenderMatch(render_img, mat_ground, matchesSift, keys_render, keys_ground,cv::Scalar(0,std::rand()%255, std::rand() % 255, std::rand() % 255),1);
-	cv::imwrite(name + "sift" + std::to_string(matchesSift.size()) + ".png", ground_renderSift);
+    cv::Mat g_r_SIFT = drawRenderMatch(render_img, mat_ground, matchesSift, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0), 1);
 
-	/*SIFT+ransac*/
-     std::vector<cv::DMatch> matchesNoc = sift_matcher.match(keys_render, desc_render);
-	 cv::Mat &ground_render1= drawRenderMatch(render_img, mat_ground, matchesNoc, keys_render, keys_ground,cv::Scalar(255,0,0,0));
-    // cv::imwrite(name + "+sift+ransac+" + std::to_string(matchesNoc.size())+ ".png", ground_render1);
+	/* #2.SIFT+ransac only */
+     std::vector<cv::DMatch> matchesRANSAC = sift_matcher.matchRANSAC(keys_render, desc_render);
+    cv::Mat &g_r_RANSAC = drawRenderMatch(render_img, mat_ground, matchesRANSAC, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0));
 
-	  /*SIFT+Proposed+ransac*/
-     std::vector<cv::DMatch> matches = sift_matcher.matchp(keys_render, desc_render, keys_ground, keys_render);
-     cv::Mat &ground_render3 =
-         drawRenderMatch(render_img, mat_ground, matches, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0));
-
-
+	  /* #3.SIFT+Proposed+ransac */
+    std::vector<cv::DMatch> matches = sift_matcher.matchProposed(keys_render, desc_render, keys_ground, keys_render);
+     cv::Mat &g_r_Proposed = drawRenderMatch(render_img, mat_ground, matches, keys_render, keys_ground, cv::Scalar(255, 0, 0, 0));
      
-	 imgSubt(ground_render1, ground_render3);//overlapping filter results between proposed and ransac only
-	 //cv::imwrite(name + "+sift+ransac+" + std::to_string(matchesNoc.size()) + ".png", ground_render1);
-	 cv::imwrite(name + "+proposed+" + std::to_string(matches.size()) +"+"+std::to_string(matchesNoc.size())+ ".png", ground_render3);
-
+	 /* overlapping results of proposed and ransac only */
+     imgSubt(g_r_RANSAC, g_r_Proposed); 
+	 cv::imwrite(name + "-proposed" + std::to_string(matches.size()) + "VSransac" + std::to_string(matchesRANSAC.size()) + ".png", g_r_Proposed);
+	 
+	 /* consistency result figure*/
 	 {
 		 cv::Mat ground_img = cv::imread(join_paths(dir, name + ".tif"), 1);
 		 cv::Mat ground_img_clone = ground_img.clone();
+         int crosssize = 5, thickness = 2;
+         cv::Scalar color(0, 255, 0, 255);
 		 for (const auto &match : matches) {
-
 			 auto key_ground = keys_ground.at(match.trainIdx);
-			 auto key_render = keys_render.at(match.queryIdx);
-
-			 // draw arrowedLine in images
+			 auto key_render = keys_render.at(match.queryIdx);			
              cv::arrowedLine(ground_img, key_render.pt, key_ground.pt, cv::Scalar(255, 0, 255), 3, 8, 0, 0.3);
-		
 			 for (const auto &match : matches) {				
 				 auto key_ground = keys_ground.at(match.trainIdx);
-                 auto key_render = keys_render.at(match.queryIdx);
-                 // draw cross feature in images
-                 {
-					 int crosssize = 5,thickness=2;
-					 cv::Scalar color(0, 255, 0,255);
-                      cv::line(ground_img, cv::Point(key_ground.pt.x - crosssize / 2, key_ground.pt.y),
-                              cv::Point(key_ground.pt.x + crosssize / 2, key_ground.pt.y), color, thickness, 8, 0);                     
-                      cv::line(ground_img, cv::Point(key_ground.pt.x, key_ground.pt.y - crosssize / 2),
-                              cv::Point(key_ground.pt.x, key_ground.pt.y + crosssize / 2), color, thickness, 8, 0);
-                      cv::line(mat_rgb, cv::Point(key_render.pt.x - crosssize / 2, key_render.pt.y),
-                              cv::Point(key_render.pt.x + crosssize / 2, key_render.pt.y), color, thickness, 8, 0);                   
-                      cv::line(mat_rgb, cv::Point(key_render.pt.x, key_render.pt.y - crosssize / 2),
-                              cv::Point(key_render.pt.x, key_render.pt.y + crosssize / 2), color, thickness, 8, 0);
-                     cv::arrowedLine(ground_img_clone, key_render.pt, key_ground.pt, cv::Scalar(255, 0, 255), 3, 8, 0,0.3);                    
-                 }
+                 auto key_render = keys_render.at(match.queryIdx);                 
+                 cv::line(ground_img, cv::Point(key_ground.pt.x - crosssize / 2, key_ground.pt.y),
+                          cv::Point(key_ground.pt.x + crosssize / 2, key_ground.pt.y), color, thickness, 8, 0);
+                 cv::line(ground_img, cv::Point(key_ground.pt.x, key_ground.pt.y - crosssize / 2),
+                          cv::Point(key_ground.pt.x, key_ground.pt.y + crosssize / 2), color, thickness, 8, 0);
+                 cv::line(mat_rgb, cv::Point(key_render.pt.x - crosssize / 2, key_render.pt.y),
+                          cv::Point(key_render.pt.x + crosssize / 2, key_render.pt.y), color, thickness, 8, 0);
+                 cv::line(mat_rgb, cv::Point(key_render.pt.x, key_render.pt.y - crosssize / 2),
+                          cv::Point(key_render.pt.x, key_render.pt.y + crosssize / 2), color, thickness, 8, 0);
+                 cv::arrowedLine(ground_img_clone, key_render.pt, key_ground.pt, cv::Scalar(255, 0, 255), 3, 8, 0, 0.3);                
 			 }
 		 }
-		 std::string r2gName = name + "+r2g+lineintersect.png", siftG2RName = name +"+"+std::to_string(matches.size())+ "+LRCF.png";
-
-		 cv::imwrite(siftG2RName, ground_img_clone);
-		
-		 auto svgName = (char*)r2gName.data();
-
-		 cv::Mat match_mat, match_mat_noc;
+         std::string consistencyName = name + "-consistency.png";
+         cv::imwrite(consistencyName, ground_img_clone);
 	 }
 
-	//do Lmeds test
-	/*{
-		using namespace std;
-		using namespace cv;
-		std::vector<std::vector<cv::DMatch>> Lmatches_;
-		cv::BFMatcher Lmatcher;
-		Lmatcher.knnMatch(desc_render, desc_ground, Lmatches_,2);
-        vector<DMatch> goodMatches;
-
-        for (int i = 0; i < Lmatches_.size(); i++) {
-
-            const DMatch &bestmatch = Lmatches_[i][0];
-            const DMatch &bettermatch = Lmatches_[i][1];
-            float ratio = bestmatch.distance / bettermatch.distance;
-            if (ratio < 0.95) {
-                goodMatches.push_back(bestmatch);
-            }
-        }
-		int matchNum = Lmatches_.size();
-		vector <KeyPoint> RAN_KP1, RAN_KP2;
-        for (size_t i = 0; i < goodMatches.size(); i++) {
-           
-            RAN_KP1.push_back(keys_render[goodMatches[i].queryIdx]);
-           
-            RAN_KP2.push_back(keys_ground[goodMatches[i].trainIdx]);           
-        }
-        vector<Point2f> p01, p02;
-        for (size_t i = 0; i < Lmatches_.size(); i++) {
-            p01.push_back(RAN_KP1[i].pt);
-            p02.push_back(RAN_KP2[i].pt);
-        }
-        vector<uchar> RansacStatus,lMedsStatus;
-        vector<uchar> RansacHomography;
-        Mat mat_Fundamental = cv::findFundamentalMat(p01, p02, lMedsStatus, LMEDS);
-        Mat mat_Fundamental_ransac = cv::findFundamentalMat(p01, p02, RansacStatus, RANSAC);
-        vector<KeyPoint> RR_KP1, RR_KP2, RR_KP3, RR_KP4;
-        vector<DMatch> RR_matches1, RR_matches2;
-        int index = 0;
-        for (size_t i = 0; i < goodMatches.size(); i++) {
-            if (lMedsStatus[i] != 0) {
-                RR_KP1.push_back(RAN_KP1[i]);
-                RR_KP2.push_back(RAN_KP2[i]);
-				goodMatches[i].queryIdx = index;
-				goodMatches[i].trainIdx = index;
-                RR_matches1.push_back(goodMatches[i]);
-                index++;
-            }
-        }
-        for (size_t i = 0; i < goodMatches.size(); i++) {
-            if (RansacStatus[i] != 0) {
-                RR_KP3.push_back(RAN_KP1[i]);
-                RR_KP4.push_back(RAN_KP2[i]);
-                goodMatches[i].queryIdx = index;
-                goodMatches[i].trainIdx = index;
-                RR_matches2.push_back(goodMatches[i]);
-                index++;
-            }
-        }
-        Mat img_RR_matches, img_LM_matches;
-        
-        drawMatches(render_img, RR_KP1, mat_ground, RR_KP2, RR_matches1, img_LM_matches);
-		drawMatches(render_img, RR_KP3, mat_ground, RR_KP4, RR_matches2, img_RR_matches);
-	}*/
-     
 
     // too few matches
     if (matches.size() < 10) {
@@ -428,7 +320,6 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
         }
         results.push_back(result);
     }
-   // std::cout << path << std::endl;
     return results;
 }
 
@@ -816,13 +707,7 @@ cv::Mat RenderMatcher::draw_matches(uint32_t iid_ground, uint32_t iid_aerial, co
         auto key_ground = match.pt_ground;
 
         for (int i = 0; i < key_aerial.size(); i++) {
-            if (match.iid_aerial[i] == iid_aerial) {
-                // cv::line(mat_aerial, cv::Point(key_aerial[i].x() - crosssize / 2, key_aerial[i].y()),
-                //         cv::Point(key_aerial[i].x() + crosssize / 2, key_aerial[i].y()), color, thickness, 8, 0);
-                ////绘制竖线
-                // cv::line(mat_aerial, cv::Point(key_aerial[i].x(), key_aerial[i].y() - crosssize / 2),
-                //         cv::Point(key_aerial[i].x(), key_aerial[i].y() + crosssize / 2), color, thickness, 8, 0);
-
+            if (match.iid_aerial[i] == iid_aerial && match.iid_ground == iid_ground) {
                 line(ter_aer_mat,
                      cv::Point(key_ground.x() * mat_aerial.cols / mat_ground_size.width,
                                key_ground.y() * mat_aerial.rows / mat_ground_size.height),
@@ -844,5 +729,5 @@ cv::Mat RenderMatcher::draw_matches(uint32_t iid_ground, uint32_t iid_aerial, co
         }
     }
 	std::cout << "matches number：" << countKey << std::endl;
-    return ter_aer_mat;
+    return ter_aer_mat_vertical;
 }

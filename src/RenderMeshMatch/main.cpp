@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
 
 	// set original transform
     Eigen::Vector3d originCoord;
-    originCoord << 402971, 3406101, 0;
+    originCoord << 393491, 5707787, 0;
 
     cxxopts::Options options("RenderMeshMatch",
                              "The pipeline for render image and aerial-ground match with rendered images as delegates");
@@ -291,15 +291,12 @@ int main(int argc, char **argv) {
             RenderMatchResults results_image = matcher.match(iid, *mat_rgb, *mat_dep);
             match_results.insert(end(match_results), begin(results_image), end(results_image));
 
-		       		
+			cv::Mat mat;
+           if (iid == 0) {
+			mat = matcher.draw_matches(iid, 0, match_results, cv::Scalar(0,255,0,0));
+            cv::imwrite(std::to_string(iid)+"test.jpg", mat);
 
-			
-           // if (iid == 0) {
-			cv::Mat mat = matcher.draw_matches(iid, 178, match_results, cv::Scalar(0,255,0,0));
-            cv::imwrite(std::to_string(iid)+".jpg", mat);
-           /* cv::Mat mat2 = matcher.draw_matches(191, 64, match_results);
-            cv::imwrite("2315-7106.jpg", mat2);*/
-           // }
+          }
         }
     }
 

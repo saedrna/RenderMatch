@@ -142,8 +142,6 @@ find_package(TIFF REQUIRED)
 
 # OpenMVG::openMVG_(modules) find_package(OpenMVG REQUIRED)
 
-# Geogram::Geogram
-find_package(Geogram REQUIRED)
 
 # Embree3::Embree3
 find_package(Embree3 REQUIRED)
