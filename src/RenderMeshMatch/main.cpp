@@ -287,6 +287,7 @@ int main(int argc, char **argv) {
             matcher.set_ogl_matrices(eview, eproj);
             RenderMatchResults results_image = matcher.match(iid, *mat_rgb, *mat_dep);
             match_results.insert(end(match_results), begin(results_image), end(results_image));
+            //cv::Mat testMat = matcher.draw_matches(iid, 0, match_results);
 	
         }
     }
