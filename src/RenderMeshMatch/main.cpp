@@ -24,14 +24,14 @@
 
 using namespace h2o;
 
- Eigen::Vector3d load_trans(std::string originCoord_at) {
-    Eigen::Vector3d originCoords;
+ Eigen::Vector3d load_trans(std::string origin_coord_at) {
+    Eigen::Vector3d origin_coord;
     std::string token;
-    std::stringstream ss(originCoord_at);
+    std::stringstream ss(origin_coord_at);
     for (int i = 0; i < 3; i++) {
-        if (std::getline(ss, token, ',')) originCoords[i] = std::stod(token);
+        if (std::getline(ss, token, ',')) origin_coord[i] = std::stod(token);
     }
-    return originCoords;
+    return origin_coord;
 }
 
 struct ScreenShot : public osg::Camera::DrawCallback {
@@ -287,7 +287,6 @@ int main(int argc, char **argv) {
             matcher.set_ogl_matrices(eview, eproj);
             RenderMatchResults results_image = matcher.match(iid, *mat_rgb, *mat_dep);
             match_results.insert(end(match_results), begin(results_image), end(results_image));
-            //cv::Mat testMat = matcher.draw_matches(iid, 0, match_results);
 	
         }
     }

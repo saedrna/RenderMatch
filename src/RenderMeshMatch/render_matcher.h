@@ -70,7 +70,6 @@ protected:
     // extract a patch from the aerial image, with a homography matrix to determine the original coordinates
     // aerial = H * patch
 
-	//obtain template patch to verify our experiments, not necessary for our algorithm
     std::tuple<cv::Mat, Matrix3f> get_patch_on_aerial_image(uint32_t iid_ground, uint32_t iid_aerial,
                                                             const MatrixXf &corners, const Vector3f &normal);
 
@@ -78,7 +77,6 @@ protected:
     // extract a patch from the ground image, assume that the deformation between ground and render image is removed
     // i.e. only translational difference
 
-	//obtain template patch to verify our experiments, not necessary for our algorithm
     cv::Mat get_patch_on_ground_image(uint32_t iid, const Vector2d &point);
 
     std::vector<uint32_t> search_visible_aerial_images(const MatrixXf &corners, const Vector3f &normal);

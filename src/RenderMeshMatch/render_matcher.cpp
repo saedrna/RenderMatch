@@ -403,7 +403,7 @@ std::tuple<cv::Mat, Matrix3f> RenderMatcher::get_patch_on_aerial_image(uint32_t 
         cv::warpPerspective(mat_sub, mat_pat, H, mat_pat.size(), cv::INTER_LINEAR);
     }
 
-    return std::make_tuple( mat_pat, H_pat_aer.cast<float>());
+    return std::make_tuple(mat_pat, H_pat_aer.cast<float>());
 }
 
 cv::Mat RenderMatcher::get_patch_on_ground_image(uint32_t iid, const Vector2d &point) {
@@ -424,17 +424,13 @@ cv::Mat RenderMatcher::get_patch_on_ground_image(uint32_t iid, const Vector2d &p
     bounds_patch.extend(Vector2i(point.x() + 2.5 + patch_half, point.y() + 2.5 + patch_half));
 
     if (!bounds_image.contains(bounds_patch)) {
-        return  cv::Mat();
+        return cv::Mat();
     }
 
     Matrix23d M_sub_ima;
-    cv::Mat sub, paper_sub;
+    cv::Mat sub;
     std::tie(M_sub_ima, sub) = images_ground_.at(iid)->get_patch(bounds_patch, bounds_patch.sizes());
 
-    /*experiments figure making*/
-    paper_sub = sub.clone();
-    // cv::imwrite("result\\patch\\"+std::to_string(iid)+"\\ter" + std::to_string(iid) +"-"+
-    // std::to_string(int(point.x()))+ ".jpg", paper_sub);
 
     if (sub.channels() == 3) {
         cv::cvtColor(sub, sub, cv::COLOR_RGB2GRAY);
@@ -486,4 +482,3 @@ Vector3f RenderMatcher::depth_to_xyz(float depth, const Vector2i &point) {
 
     return coord;
 }
-
