@@ -47,14 +47,15 @@ public:
     virtual void set_train_data(const std::vector<cv::KeyPoint> &keys, const cv::Mat &desc);
     virtual void set_train_data(const FeaturePoints &features, const cv::Mat &desc);
     virtual void set_match_param(const SiftMatcherParam &param) { param_ = param; }
-    virtual std::vector<cv::DMatch> match_RANSAC(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc);
+    virtual std::vector<cv::DMatch> SiftMatcher::match_proposed(const std::vector<cv::KeyPoint> &qkeys,
+                                                                const cv::Mat &qdesc,
+                                                                std::vector<cv::KeyPoint> keys_ground,
+                                                                std::vector<cv::KeyPoint> keys_render);
     virtual IndexMatches match(const FeaturePoints &features, const cv::Mat &desc);
     static cv::Mat draw_matches(const cv::Mat &mat_i, const cv::Mat &mat_j, const FeaturePoints &feat_i,
                                 const FeaturePoints &feat_j, const IndexMatches &matches);
-
-	std::vector<cv::DMatch> SiftMatcher::match_sift(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc);
-	std::vector<cv::DMatch> SiftMatcher::match_proposed(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc,
-		std::vector<cv::KeyPoint> keys_ground,std::vector<cv::KeyPoint> keys_render);
+	
+	std::vector<cv::DMatch> SiftMatcher::match_ransac(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc);
 
 protected:
     IndexMatches acransac(const FeaturePoints &i_feat, const FeaturePoints &j_feat, const IndexMatches &initial);

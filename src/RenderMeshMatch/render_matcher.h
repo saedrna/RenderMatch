@@ -59,7 +59,6 @@ public:
 
     // debug two match images
     cv::Mat draw_matches(uint32_t iid_ground, uint32_t iid_aerial, const RenderMatchResults &matches);
-	cv::Mat draw_matches(uint32_t iid_ground, uint32_t iid_aerial, const RenderMatchResults &matches, cv::Scalar color);
 
 protected:
     // extract a patch from the rendered image, four corner points and a normal vector
@@ -72,7 +71,7 @@ protected:
     // aerial = H * patch
 
 	//obtain template patch to verify our experiments, not necessary for our algorithm
-    std::tuple<cv::Mat, cv::Mat, Matrix3f> get_patch_on_aerial_image(uint32_t iid_ground, uint32_t iid_aerial,
+    std::tuple<cv::Mat, Matrix3f> get_patch_on_aerial_image(uint32_t iid_ground, uint32_t iid_aerial,
                                                             const MatrixXf &corners, const Vector3f &normal);
 
     // return a patch on the ground image, which is the template
@@ -80,7 +79,7 @@ protected:
     // i.e. only translational difference
 
 	//obtain template patch to verify our experiments, not necessary for our algorithm
-    std::tuple<cv::Mat, cv::Mat> get_patch_on_ground_image(uint32_t iid, const Vector2d &point);
+    cv::Mat get_patch_on_ground_image(uint32_t iid, const Vector2d &point);
 
     std::vector<uint32_t> search_visible_aerial_images(const MatrixXf &corners, const Vector3f &normal);
 

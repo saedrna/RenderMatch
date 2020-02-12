@@ -37,7 +37,7 @@ void SiftMatcher::set_train_data(const FeaturePoints &features, const cv::Mat &d
     set_train_data(keys, desc);
 }
 
-/*line intersection check*/
+//line intersection check
 bool lineIntersection(cv::DMatch match1, cv::DMatch match2, std::vector<cv::KeyPoint> queryKeys,
                       std::vector<cv::KeyPoint> trainKeys) {
     // l1->[dist,x1,y1,x2,y2],l2->[dist,x3,y3,x4,y4]
@@ -70,29 +70,7 @@ bool lineIntersection(cv::DMatch match1, cv::DMatch match2, std::vector<cv::KeyP
     }
 }
 
-/* #1.SIFT retio check */
-std::vector<cv::DMatch> SiftMatcher::match_sift(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc) {
-
-    CHECK(qkeys.size() == qdesc.rows);
-    const int K = 2;
-    const int N = qdesc.rows;
-    std::vector<uint32_t> argmins(K * N, (uint32_t)-1), mins(K * N, (uint32_t)-1);
-    index_->search_knn(qdesc.data, qdesc.rows, 2, argmins.data(), mins.data());
-
-    std::vector<cv::DMatch> matches;
-    matches.reserve(N);
-
-    for (int i = 0; i < N; ++i) {
-        if ((float)mins[i * K] / mins[i * K + 1] < param_.nn_ratio) {
-            matches.emplace_back(i, argmins[i * K], (float)mins[i * K]);
-        }
-    }
-
-    return retain_best_matches(qkeys, matches);
-}
-
-/* #2.SIFT+ransac only */
-std::vector<cv::DMatch> SiftMatcher::match_RANSAC(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc) {
+std::vector<cv::DMatch> SiftMatcher::match_ransac(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc) {
 
     CHECK(qkeys.size() == qdesc.rows);
     const int K = 2;
@@ -118,7 +96,8 @@ std::vector<cv::DMatch> SiftMatcher::match_RANSAC(const std::vector<cv::KeyPoint
     }
     return retain_best_matches(qkeys, matches);
 }
-/* #3.SIFT+Proposed+ransac */
+
+//  local geometry constraints for outlier removal
 std::vector<cv::DMatch> SiftMatcher::match_proposed(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc,
                                                    std::vector<cv::KeyPoint> keys_ground,
                                                    std::vector<cv::KeyPoint> keys_render) {
@@ -166,7 +145,6 @@ std::vector<cv::DMatch> SiftMatcher::match_proposed(const std::vector<cv::KeyPoi
         matches = tmatches;
     }
 
-    /*Consistency 2&3*/
     {
         using namespace cv;
         std::vector<cv::DMatch> tmatches;
@@ -261,7 +239,7 @@ IndexMatches SiftMatcher::match(const FeaturePoints &features, const cv::Mat &de
     std::vector<cv::KeyPoint> keys(features.size());
     std::transform(begin(features), end(features), begin(keys),
                    [](const Vector2f &feat) { return cv::KeyPoint(feat.x(), feat.y(), 9.0); });
-    std::vector<cv::DMatch> matches = match_RANSAC(keys, desc);
+    std::vector<cv::DMatch> matches = match_ransac(keys, desc);
     IndexMatches matches_out(matches.size());
     std::transform(begin(matches), end(matches), begin(matches_out),
                    [](const cv::DMatch &dmatch) { return IndexMatch(dmatch.trainIdx, dmatch.queryIdx); });

@@ -39,8 +39,6 @@ struct Block {
     PhotoGroups groups;
 
     Vector2d project(const Vector3d &point, uint32_t iid) const;
-
-	Vector3d transPara;
 };
 
 // load an xml block file
@@ -50,7 +48,7 @@ Block load_block_xml(const std::string &path);
 Block load_block(const std::string &path);
 
 //load a json block file with original transform
-Block load_block(const std::string &path, Eigen::Vector3d originCoord);
+Block load_block(const std::string &path, Eigen::Vector3d origin_coord);
 
 // save a block file in json format
 void save_block(const std::string &path, const Block &block);

@@ -201,8 +201,6 @@ Block load_block_xml(const std::string &path) {
 Block load_block(const std::string &path) {
 
     nlohmann::json j;
-    Vector3d originCoord;
-	originCoord << 402971, 3406101, 0;
 	
     {
         QFile file(QString::fromStdString(path));
@@ -349,7 +347,6 @@ Block load_block(const std::string &path) {
             block_photo.id = iid;
             block_photo.cid = cid;
             block_photo.path = path;
-            block_photo.C = Vector3d(x, y, z) - originCoord;
             block_photo.R = R;
             block_photo.znear = znear;
             block_photo.zmed = zmed;
@@ -371,10 +368,10 @@ Block load_block(const std::string &path) {
     return Block();
 }
 
-Block load_block(const std::string &path, Eigen::Vector3d originCoord) {
+/*if mesh model have a original transform*/
+Block load_block(const std::string &path, Eigen::Vector3d origin_coord) {
 
     nlohmann::json j;
-    //Vector3d originCoord;
 
     {
         QFile file(QString::fromStdString(path));
@@ -521,7 +518,7 @@ Block load_block(const std::string &path, Eigen::Vector3d originCoord) {
             block_photo.id = iid;
             block_photo.cid = cid;
             block_photo.path = path;
-            block_photo.C = Vector3d(x, y, z) - originCoord;
+            block_photo.C = Vector3d(x, y, z) - origin_coord;
             block_photo.R = R;
             block_photo.znear = znear;
             block_photo.zmed = zmed;

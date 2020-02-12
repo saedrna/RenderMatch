@@ -109,7 +109,7 @@ struct ScreenShot : public osg::Camera::DrawCallback {
                     cv::Vec3f *ptr_xyz = mat_xyz.ptr<cv::Vec3f>(r);
                     for (int c = 0; c < mat_rgb.cols; ++c) {
                         float depth = ptr_dep[c];
-                        if (std::abs(depth - 1.0) < 1e-6f) {
+                        if (std::abs(depth - 1.0) < 1e-4f) {
                             ptr_xyz[c][0] = FLT_MAX;
                             ptr_xyz[c][1] = FLT_MAX;
                             ptr_xyz[c][2] = FLT_MAX;
@@ -127,9 +127,6 @@ struct ScreenShot : public osg::Camera::DrawCallback {
 
                         Vector4f object = inverse_mvp * screen;
                         Vector3f coord = object.hnormalized();
-                        coord.z() = coord.z() - 500;
-                        coord.normalize();
-                       //std::cout << coord << std::endl;
 
                         ptr_xyz[c][0] = coord.x();
                         ptr_xyz[c][1] = coord.y();
@@ -321,7 +318,7 @@ int main(int argc, char **argv) {
 
         // set up the viewport
         auto photos = pgroup.photos;
-        for (uint32_t iid = 0; iid < photos.size();iid++) {
+        for (uint32_t iid : photos) {
             Photo photo = rectified.photos.at(iid);
 
             // near and far are used to determine the projection matrix in ogl

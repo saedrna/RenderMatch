@@ -372,7 +372,7 @@ cv::Mat image_percent_scale_8u(const cv::Mat &image, cv::Mat mask, double percen
 
         cv::Mat hists;
         cv::calcHist(mats, channels, mask, hists, hist_size, ranges);
-       std::vector<float> hist = hists;
+        std::vector<float> hist = hists;
         CHECK(hist.size() == hist_size[0]);
 
         double total = cv::countNonZero(mask);
@@ -516,7 +516,5 @@ Matrix3d compute_homography(const std::vector<Vector2d> &source, const std::vect
     cv::cv2eigen(M, A);
     return A;
 }
-
-
 
 } // namespace h2o

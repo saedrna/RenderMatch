@@ -29,9 +29,7 @@ using namespace h2o;
     std::string token;
     std::stringstream ss(originCoord_at);
     for (int i = 0; i < 3; i++) {
-        if (std::getline(ss, token, ',')) {
-            originCoords[i] = std::stod(token);
-        }
+        if (std::getline(ss, token, ',')) originCoords[i] = std::stod(token);
     }
     return originCoords;
 }
@@ -106,7 +104,7 @@ int main(int argc, char **argv) {
     std::string path_aerial_at;
     std::string path_model;
     std::string path_config;
-    std::string originCoord_at;
+    std::string origin_coord_at;
 
     // clang-format off
     options.add_options("RenderMeshMatch")
@@ -114,7 +112,7 @@ int main(int argc, char **argv) {
         ("g,ground", "Ground AT file", cxxopts::value(path_ground_at))
         ("m,model", "Path to the mesh", cxxopts::value(path_model))
         ("c,config", "Path to the match parameters", cxxopts::value(path_config))
-		("t,transform","original coordinate", cxxopts::value(originCoord_at))
+		("t,transform","original coordinate", cxxopts::value(origin_coord_at))
         ("h,help", "Print this help message");
     // clang-format on
 
@@ -128,12 +126,10 @@ int main(int argc, char **argv) {
     path_aerial_at = QFileInfo(QString::fromLocal8Bit(path_aerial_at.c_str())).absoluteFilePath().toStdString();
     path_model = QFileInfo(QString::fromLocal8Bit(path_model.c_str())).absoluteFilePath().toStdString();
     RenderMeshMatchConfig param = load_config(path_config);
-	Eigen::Vector3d originCoord = load_trans(originCoord_at); 
+	Eigen::Vector3d origin_coords = load_trans(origin_coord_at); 
 	
-    
-
-    h2o::Block block_aerial = load_block(path_aerial_at,originCoord);
-    h2o::Block block_ground = load_block(path_ground_at,originCoord);
+    h2o::Block block_aerial = load_block(path_aerial_at,origin_coords);
+    h2o::Block block_ground = load_block(path_ground_at,origin_coords);
     h2o::Block block_ground_rectified = undistort_block(block_ground);
 
     osgViewer::Viewer viewer;
@@ -185,7 +181,7 @@ int main(int argc, char **argv) {
                 LOG(ERROR) << "Failed to created requested graphics context";
                 return 1;
             }
-            // viewer.run();
+
             // transparent background
 
             viewer.getCamera()->setClearColor(osg::Vec4(255.0f, 255.0f, 255.0f, 0.0f));
@@ -242,9 +238,7 @@ int main(int argc, char **argv) {
              * |
              * |
              * \/
-             */
-           
-
+             */       
             Vector3d eye = photo.C ;
             Vector3d target = eye + dir * zmed;
             Vector3d up = R.transpose() * Vector3d(0, -1, 0);
@@ -293,6 +287,7 @@ int main(int argc, char **argv) {
             matcher.set_ogl_matrices(eview, eproj);
             RenderMatchResults results_image = matcher.match(iid, *mat_rgb, *mat_dep);
             match_results.insert(end(match_results), begin(results_image), end(results_image));
+	
         }
     }
 
