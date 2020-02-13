@@ -12,13 +12,10 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/calib3d.hpp>
-#include <opencv2/calib3d/calib3d.hpp>
 
 #include <Eigen/Jacobi>
 #include <fstream>
 #include <istream>
-#include <iostream>
-#include <sstream>
 #include <nlohmann/json.hpp>
 
 #include <stdio.h>
@@ -61,6 +58,37 @@ void RenderMatcher::set_ogl_matrices(const Matrix4f &view, const MatrixXf &proj)
     mvp_inverse_ = (proj * view).inverse();
 }
 
+void RenderMatcher::save_match(RenderMatchResults matches_results) {
+    std::ofstream ofile("match_results.txt");
+    ofile << "RenderMeshMatch Results"<<"\n";
+    ofile << "ground_id"
+          << "  "
+          << "ground_x"
+          << "  "
+          << "ground_y"
+          << "  "
+          << "aerial_id"
+          << "  "
+          << "aerial_x"
+          << "  "
+          << "aerial_y"
+          << "\n";
+    for (int i = 0; i < matches_results.size(); i++) {
+        for (int j = 0; j < matches_results[i].iid_aerial.size();j++) {
+            ofile << "  " << matches_results[i].iid_ground << "       ";
+            ofile << matches_results[i].pt_ground[0] << "   ";
+            ofile << matches_results[i].pt_ground[1] << "      ";
+
+            ofile << matches_results[i].iid_aerial[j] << "      ";
+            ofile << matches_results[i].pt_aerial[j][0] << "   ";
+            ofile << matches_results[i].pt_aerial[j][1] ;
+
+			ofile << "\n";
+        }
+    }
+    ofile.close();
+}
+
 RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, const cv::Mat &mat_dep) {     
 	// initialize viewpoint
     viewport_.x() = mat_dep.cols;
@@ -71,19 +99,20 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
     // load the sift descriptors of the ground image
     std::vector<cv::KeyPoint> keys_ground;
     cv::Mat desc_ground;
-
-    std::string path = block_ground_.photos.at(iid).path;
-    std::string name = get_filename_noext(path);
-    std::string dir = get_directory(path);
-    path = join_paths(dir, name + ".sift");
-    if (file_exist(path)) {
-        sift_read(path, keys_ground, desc_ground);
-    } else {
-        cv::Mat mat = cv::imread(images_ground_.at(iid)->get_path(), cv::IMREAD_GRAYSCALE);		
-        mat = image_percent_scale_8u(mat);
-        std::tie(keys_ground, desc_ground) = sift_->detect_and_compute(mat);
-    }
-	cv::Mat mat_ground =cv::imread(images_ground_.at(iid)->get_path());
+	{
+        std::string path = block_ground_.photos.at(iid).path;
+        std::string name = get_filename_noext(path);
+        std::string dir = get_directory(path);
+        path = join_paths(dir, name + ".sift");
+        if (file_exist(path)) {
+            sift_read(path, keys_ground, desc_ground);
+        } else {
+            cv::Mat mat = cv::imread(images_ground_.at(iid)->get_path(), cv::IMREAD_GRAYSCALE);
+            mat = image_percent_scale_8u(mat);
+            std::tie(keys_ground, desc_ground) = sift_->detect_and_compute(mat);
+        }
+	}
+    
     // extract sift from rendered images
     std::vector<cv::KeyPoint> keys_render;
     cv::Mat desc_render;
@@ -202,48 +231,6 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
     return results;
 }
 
-cv::Mat RenderMatcher::draw_matches(uint32_t iid_ground, uint32_t iid_aerial, const RenderMatchResults &matches) {
-    std::vector<cv::KeyPoint> keys_ground, keys_aerial;
-    std::vector<cv::DMatch> dmatches;
-
-    int pos = 0;
-    for (const auto &match : matches) {
-        uint32_t iid = match.iid_ground;
-        if (iid != iid_ground) {
-            continue;
-        }
-
-        for (int i = 0; i < match.iid_aerial.size(); ++i) {
-            uint32_t iid2 = match.iid_aerial[i];
-            if (iid2 != iid_aerial) {
-                continue;
-            }
-
-            Vector2f pt_aerial = match.pt_aerial[i];
-
-            dmatches.push_back(cv::DMatch(pos, pos, 0.0f));
-            keys_ground.push_back(cv::KeyPoint(match.pt_ground.x(), match.pt_ground.y(), 32.0f));
-            keys_aerial.push_back(cv::KeyPoint(pt_aerial.x(), pt_aerial.y(), 32.0f));
-            pos++;
-        }
-    }
-
-    if (dmatches.size() == 0) {
-        return cv::Mat();
-    }
-
-    std::string path_ground = block_ground_.photos.at(iid_ground).path;
-    std::string path_aerial = block_aerial_.photos.at(iid_aerial).path;
-
-    cv::Mat mat_ground = cv::imread(path_ground, cv::IMREAD_UNCHANGED);
-    cv::Mat mat_aerial = cv::imread(path_aerial, cv::IMREAD_UNCHANGED);
-
-    cv::Mat mat;
-    cv::drawMatches(mat_ground, keys_ground, mat_aerial, keys_aerial, dmatches, mat, cv::Scalar(0, 255, 0));
-
-    return mat;
-}
-
 std::tuple<MatrixXf, Vector3f, Vector3f> RenderMatcher::get_patch_on_rendered_image(uint32_t iid, const Vector2i &pt,
                                                                                     const cv::Mat &mat_dep) {
 
@@ -254,8 +241,8 @@ std::tuple<MatrixXf, Vector3f, Vector3f> RenderMatcher::get_patch_on_rendered_im
     int cols = mat_dep.cols;
 
     BoundingBox2i bounds_image;
-    bounds_image.extend(Vector2i(0, 0));
-    bounds_image.extend(Vector2i(cols - 1, rows - 1));
+    bounds_image.extend(Vector2i(0 , 0));
+    bounds_image.extend(Vector2i(cols , rows));
     BoundingBox2i bounds_patch;
     bounds_patch.extend(Vector2i(pt.x() - patch_half, pt.y() - patch_half));
     bounds_patch.extend(Vector2i(pt.x() + patch_half + 1, pt.y() + patch_half + 1));

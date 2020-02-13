@@ -26,11 +26,10 @@ using namespace h2o;
 
  Eigen::Vector3d load_trans(std::string origin_coord_at) {
     Eigen::Vector3d origin_coord;
-    std::string token;
-    std::stringstream ss(origin_coord_at);
-    for (int i = 0; i < 3; i++) {
-        if (std::getline(ss, token, ',')) origin_coord[i] = std::stod(token);
-    }
+    const char *s = origin_coord_at.data();
+    double a, b, c;
+    std::sscanf(s, "%lf,%lf,%lf", &a, &b, &c);
+    origin_coord << a, b, c;
     return origin_coord;
 }
 
@@ -220,7 +219,7 @@ int main(int argc, char **argv) {
 
         // set up the viewport
         auto photos = pgroup.photos;
-        for (uint32_t iid = 0; iid < photos.size(); iid++) {
+        for (uint32_t iid : photos) {
             Photo photo = block_ground_rectified.photos.at(iid);
 
             // near and far are used to determine the projection matrix in ogl
@@ -238,8 +237,8 @@ int main(int argc, char **argv) {
              * |
              * |
              * \/
-             */       
-            Vector3d eye = photo.C ;
+             */
+            Vector3d eye = photo.C;
             Vector3d target = eye + dir * zmed;
             Vector3d up = R.transpose() * Vector3d(0, -1, 0);
 
@@ -287,9 +286,9 @@ int main(int argc, char **argv) {
             matcher.set_ogl_matrices(eview, eproj);
             RenderMatchResults results_image = matcher.match(iid, *mat_rgb, *mat_dep);
             match_results.insert(end(match_results), begin(results_image), end(results_image));
-	
         }
     }
+    matcher.save_match(match_results);
 
     return 0;
 }

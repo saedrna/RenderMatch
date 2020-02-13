@@ -55,10 +55,8 @@ public:
     void set_param(const RenderMeshMatchConfig &param);
     void set_block(const h2o::Block &aerial, const h2o::Block &ground);
     void set_ogl_matrices(const Matrix4f &view, const MatrixXf &proj);
+    void save_match(RenderMatchResults matches_results);
     RenderMatchResults match(uint32_t iid, const cv::Mat &mat_rgb, const cv::Mat &mat_dep);
-
-    // debug two match images
-    cv::Mat draw_matches(uint32_t iid_ground, uint32_t iid_aerial, const RenderMatchResults &matches);
 
 protected:
     // extract a patch from the rendered image, four corner points and a normal vector

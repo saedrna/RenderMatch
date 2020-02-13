@@ -48,7 +48,7 @@ Block load_block_xml(const std::string &path);
 Block load_block(const std::string &path);
 
 //load a json block file with original transform
-Block load_block(const std::string &path, Eigen::Vector3d origin_coord);
+Block load_block(const std::string &path, Eigen::Vector3d origin_coord=Eigen::Vector3d(0.0,0.0,0.0));
 
 // save a block file in json format
 void save_block(const std::string &path, const Block &block);
