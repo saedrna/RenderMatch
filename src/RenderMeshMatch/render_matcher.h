@@ -19,7 +19,7 @@ struct RenderMeshMatchConfig {
     double angle_difference = 60.0;
 
     // ncc window for correlation, should be odd
-    int ncc_window = 21;
+    int ncc_window = 41;
 
     // additional search region for ncc, to locate the peak
     // final patch size is (window / 2 + search / 2) * 2 + 1
@@ -30,6 +30,7 @@ struct RenderMeshMatchConfig {
 
     // use lsm on the patch
     bool use_lsm = false;
+
 };
 
 RenderMeshMatchConfig load_config(const std::string &path);
@@ -68,6 +69,7 @@ protected:
 
     // extract a patch from the aerial image, with a homography matrix to determine the original coordinates
     // aerial = H * patch
+
     std::tuple<cv::Mat, Matrix3f> get_patch_on_aerial_image(uint32_t iid_ground, uint32_t iid_aerial,
                                                             const MatrixXf &corners, const Vector3f &normal);
 

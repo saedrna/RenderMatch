@@ -11,10 +11,17 @@
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/calib3d.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
 
 #include <Eigen/Jacobi>
 #include <fstream>
+#include <istream>
+#include <iostream>
+#include <sstream>
 #include <nlohmann/json.hpp>
+
+#include <stdio.h>
 
 RenderMeshMatchConfig load_config(const std::string &path) {
     std::ifstream ifile(path);
@@ -54,29 +61,29 @@ void RenderMatcher::set_ogl_matrices(const Matrix4f &view, const MatrixXf &proj)
     mvp_inverse_ = (proj * view).inverse();
 }
 
-RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, const cv::Mat &mat_dep) {
-    // initialize viewpoint
+RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, const cv::Mat &mat_dep) {     
+	// initialize viewpoint
     viewport_.x() = mat_dep.cols;
     viewport_.y() = mat_dep.rows;
+
+    cv::Mat render_img = mat_rgb.clone();
 
     // load the sift descriptors of the ground image
     std::vector<cv::KeyPoint> keys_ground;
     cv::Mat desc_ground;
 
-    {
-        std::string path = block_ground_.photos.at(iid).path;
-        std::string name = get_filename_noext(path);
-        std::string dir = get_directory(path);
-        path = join_paths(dir, name + ".sift");
-        if (file_exist(path)) {
-            sift_read(path, keys_ground, desc_ground);
-        } else {
-            cv::Mat mat = cv::imread(images_ground_.at(iid)->get_path(), cv::IMREAD_GRAYSCALE);
-            mat = image_percent_scale_8u(mat);
-            std::tie(keys_ground, desc_ground) = sift_->detect_and_compute(mat);
-        }
+    std::string path = block_ground_.photos.at(iid).path;
+    std::string name = get_filename_noext(path);
+    std::string dir = get_directory(path);
+    path = join_paths(dir, name + ".sift");
+    if (file_exist(path)) {
+        sift_read(path, keys_ground, desc_ground);
+    } else {
+        cv::Mat mat = cv::imread(images_ground_.at(iid)->get_path(), cv::IMREAD_GRAYSCALE);		
+        mat = image_percent_scale_8u(mat);
+        std::tie(keys_ground, desc_ground) = sift_->detect_and_compute(mat);
     }
-
+	cv::Mat mat_ground =cv::imread(images_ground_.at(iid)->get_path());
     // extract sift from rendered images
     std::vector<cv::KeyPoint> keys_render;
     cv::Mat desc_render;
@@ -99,16 +106,21 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
     SiftMatcher sift_matcher;
     sift_matcher.set_match_param(sift_param);
     sift_matcher.set_train_data(keys_ground, desc_ground);
-    std::vector<cv::DMatch> matches = sift_matcher.match(keys_render, desc_render);
 
+	// local geometry constraints for outlier removal
+    std::vector<cv::DMatch> matches = sift_matcher.match_proposed(keys_render, desc_render, keys_ground, keys_render);    
+	
     // too few matches
     if (matches.size() < 10) {
         return RenderMatchResults();
     }
 
-    // for each match expand to aerial views with patch match
-    RenderMatchResults results;
+ // for each match expand to aerial views with patch match
+	RenderMatchResults results;
+
     for (const auto &match : matches) {
+        int count = 0;
+
         auto key_ground = keys_ground.at(match.trainIdx);
         auto key_render = keys_render.at(match.queryIdx);
 
@@ -121,11 +133,6 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
             continue;
         }
 
-        // debug
-        //         cv::Mat mat_patch_ren = debug_patch_on_render_image(mat_rgb, Vector2d(key_render.pt.x,
-        //         key_render.pt.y));
-
-        // extract a planar (a point and normal) on the rendered depth image
         MatrixXf corners_ren;
         MatrixXf point_ren;
         Vector3f normal_ren;
@@ -141,6 +148,7 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
 
         // search visible aerial images
         std::vector<uint32_t> iids_aerial = search_visible_aerial_images(corners_ren, normal_ren);
+		
         if (iids_aerial.empty()) {
             continue;
         }
@@ -149,20 +157,21 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
         std::vector<Matrix3f> Hs_pat_aer;
         std::vector<uint32_t> iids_aerial_valid;
         for (uint32_t iid_aerial : iids_aerial) {
+            int iid_back = 0;
             cv::Mat mat_pat;
             Matrix3f H_pat_aer;
             std::tie(mat_pat, H_pat_aer) = get_patch_on_aerial_image(iid, iid_aerial, corners_ren, normal_ren);
             if (mat_pat.empty()) {
                 continue;
-            }
+            }         
 
             // do template match
             cv::Mat ncc;
             cv::matchTemplate(mat_pat, mat_ground_template, ncc, cv::TM_CCOEFF_NORMED);
+           
             double ncc_max;
             cv::Point pos;
             cv::minMaxLoc(ncc, nullptr, &ncc_max, nullptr, &pos);
-
             if (ncc_max < param_.ncc_threshold) {
                 continue;
             }
@@ -230,7 +239,7 @@ cv::Mat RenderMatcher::draw_matches(uint32_t iid_ground, uint32_t iid_aerial, co
     cv::Mat mat_aerial = cv::imread(path_aerial, cv::IMREAD_UNCHANGED);
 
     cv::Mat mat;
-    cv::drawMatches(mat_ground, keys_ground, mat_aerial, keys_aerial, dmatches, mat);
+    cv::drawMatches(mat_ground, keys_ground, mat_aerial, keys_aerial, dmatches, mat, cv::Scalar(0, 255, 0));
 
     return mat;
 }
@@ -246,7 +255,7 @@ std::tuple<MatrixXf, Vector3f, Vector3f> RenderMatcher::get_patch_on_rendered_im
 
     BoundingBox2i bounds_image;
     bounds_image.extend(Vector2i(0, 0));
-    bounds_image.extend(Vector2i(cols, rows));
+    bounds_image.extend(Vector2i(cols - 1, rows - 1));
     BoundingBox2i bounds_patch;
     bounds_patch.extend(Vector2i(pt.x() - patch_half, pt.y() - patch_half));
     bounds_patch.extend(Vector2i(pt.x() + patch_half + 1, pt.y() + patch_half + 1));
@@ -323,9 +332,10 @@ cv::Mat RenderMatcher::debug_patch_on_render_image(const cv::Mat &mat_rgb, const
     return sub;
 }
 
-std::tuple<cv::Mat, Matrix3f> RenderMatcher::get_patch_on_aerial_image(uint32_t iid_ground, uint32_t iid_aerial,
-                                                                       const MatrixXf &corners,
-                                                                       const Vector3f &normal) {
+std::tuple<cv::Mat, Matrix3f> RenderMatcher::get_patch_on_aerial_image(uint32_t iid_ground,
+                                                                                uint32_t iid_aerial,
+                                                                                const MatrixXf &corners,
+                                                                                const Vector3f &normal) {
     // the corners corresponding to the 3D points of the four 2d corners of the final warped patch
     // we have four coordinate systems
     // - patch (as pat): the final patch warped to the ground view
@@ -361,6 +371,7 @@ std::tuple<cv::Mat, Matrix3f> RenderMatcher::get_patch_on_aerial_image(uint32_t 
     // reads M * sub = aer
     Matrix23d M_sub_aer;
     std::tie(M_sub_aer, mat_sub) = images_aerial_.at(iid_aerial)->get_patch(bounds_sub, bounds_sub.sizes());
+
     if (mat_sub.channels() == 3) {
         cv::cvtColor(mat_sub, mat_sub, cv::COLOR_RGB2GRAY);
     }
@@ -386,7 +397,7 @@ std::tuple<cv::Mat, Matrix3f> RenderMatcher::get_patch_on_aerial_image(uint32_t 
             corners_sub[i] = M_aer_sub * corners_aer[i].homogeneous();
         }
         Matrix3d H_sub_pat = compute_homography(corners_sub, corners_pat);
-
+       
         cv::Mat H;
         cv::eigen2cv(H_sub_pat, H);
         cv::warpPerspective(mat_sub, mat_pat, H, mat_pat.size(), cv::INTER_LINEAR);
@@ -419,6 +430,8 @@ cv::Mat RenderMatcher::get_patch_on_ground_image(uint32_t iid, const Vector2d &p
     Matrix23d M_sub_ima;
     cv::Mat sub;
     std::tie(M_sub_ima, sub) = images_ground_.at(iid)->get_patch(bounds_patch, bounds_patch.sizes());
+
+
     if (sub.channels() == 3) {
         cv::cvtColor(sub, sub, cv::COLOR_RGB2GRAY);
     }
