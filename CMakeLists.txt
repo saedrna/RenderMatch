@@ -142,8 +142,6 @@ find_package(TIFF REQUIRED)
 
 # OpenMVG::openMVG_(modules) find_package(OpenMVG REQUIRED)
 
-# Geogram::Geogram
-find_package(Geogram REQUIRED)
 
 # Embree3::Embree3
 find_package(Embree3 REQUIRED)
@@ -172,8 +170,8 @@ if(TARGET gflags_shared)
   list(APPEND MAP_LIBRARIES gflags_shared)
 endif(TARGET gflags_shared)
 
-set_target_properties(${MAP_LIBRARIES}
-                      PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
+#set_target_properties(${MAP_LIBRARIES}
+#                      PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
 include_directories(${EIGEN3_INCLUDE_DIR}
                     ${CMAKE_CURRENT_LIST_DIR}/depends
