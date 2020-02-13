@@ -19,7 +19,7 @@ struct RenderMeshMatchConfig {
     double angle_difference = 60.0;
 
     // ncc window for correlation, should be odd
-    int ncc_window = 21;
+    int ncc_window = 41;
 
     // additional search region for ncc, to locate the peak
     // final patch size is (window / 2 + search / 2) * 2 + 1
@@ -54,6 +54,7 @@ public:
     void set_param(const RenderMeshMatchConfig &param);
     void set_block(const h2o::Block &aerial, const h2o::Block &ground);
     void set_ogl_matrices(const Matrix4f &view, const MatrixXf &proj);
+    void save_match(RenderMatchResults matches_results);
     RenderMatchResults match(uint32_t iid, const cv::Mat &mat_rgb, const cv::Mat &mat_dep);
 
     // debug two match images

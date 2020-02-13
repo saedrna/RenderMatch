@@ -1,0 +1,8 @@
+{
+  "UseOcclusion" : false,
+  "AngleDifference" : 60.0,
+  "NccWindow": 41,
+  "NccSearch": 21,
+  "NccThreshold": 0.6,
+  "UseLsm": false
+}

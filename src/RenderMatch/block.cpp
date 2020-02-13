@@ -195,7 +195,7 @@ Block load_block_xml(const std::string &path) {
     return exchange;
 }
 
-Block load_block(const std::string &path) {
+Block load_block(const std::string &path, const Eigen::Vector3d &origin_coord) {
 
     nlohmann::json j;
     {
@@ -343,7 +343,7 @@ Block load_block(const std::string &path) {
             block_photo.id = iid;
             block_photo.cid = cid;
             block_photo.path = path;
-            block_photo.C = Vector3d(x, y, z);
+            block_photo.C = Vector3d(x, y, z) - origin_coord;
             block_photo.R = R;
             block_photo.znear = znear;
             block_photo.zmed = zmed;
