@@ -11,9 +11,11 @@
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/calib3d.hpp>
 
 #include <Eigen/Jacobi>
 #include <fstream>
+#include <istream>
 #include <nlohmann/json.hpp>
 
 RenderMeshMatchConfig load_config(const std::string &path) {
@@ -52,6 +54,38 @@ void RenderMatcher::set_block(const h2o::Block &aerial, const h2o::Block &ground
 
 void RenderMatcher::set_ogl_matrices(const Matrix4f &view, const MatrixXf &proj) {
     mvp_inverse_ = (proj * view).inverse();
+}
+
+void RenderMatcher::save_match(RenderMatchResults matches_results) {
+    std::ofstream ofile("match_results.txt");
+    ofile << "RenderMeshMatch Results"
+          << "\n";
+    ofile << "ground_id"
+          << "  "
+          << "ground_x"
+          << "  "
+          << "ground_y"
+          << "  "
+          << "aerial_id"
+          << "  "
+          << "aerial_x"
+          << "  "
+          << "aerial_y"
+          << "\n";
+    for (int i = 0; i < matches_results.size(); i++) {
+        for (int j = 0; j < matches_results[i].iid_aerial.size(); j++) {
+            ofile << "  " << matches_results[i].iid_ground << "       ";
+            ofile << matches_results[i].pt_ground[0] << "   ";
+            ofile << matches_results[i].pt_ground[1] << "      ";
+
+            ofile << matches_results[i].iid_aerial[j] << "      ";
+            ofile << matches_results[i].pt_aerial[j][0] << "   ";
+            ofile << matches_results[i].pt_aerial[j][1];
+
+            ofile << "\n";
+        }
+    }
+    ofile.close();
 }
 
 RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, const cv::Mat &mat_dep) {
@@ -99,7 +133,10 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
     SiftMatcher sift_matcher;
     sift_matcher.set_match_param(sift_param);
     sift_matcher.set_train_data(keys_ground, desc_ground);
-    std::vector<cv::DMatch> matches = sift_matcher.match(keys_render, desc_render);
+    //std::vector<cv::DMatch> matches = sift_matcher.match(keys_render, desc_render);
+
+	// local geometry constraints for outlier removal
+    std::vector<cv::DMatch> matches = sift_matcher.match_proposed(keys_render, desc_render, keys_ground, keys_render);
 
     // too few matches
     if (matches.size() < 10) {
@@ -469,3 +506,4 @@ Vector3f RenderMatcher::depth_to_xyz(float depth, const Vector2i &point) {
 
     return coord;
 }
+
