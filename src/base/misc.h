@@ -12,6 +12,10 @@
 #include <base/filesystem.h>
 #include <base/string.h>
 
+#include <fstream>
+
+#include <QVariant>
+
 namespace h2o {
 
 #ifndef STRINGIFY

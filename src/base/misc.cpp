@@ -20,6 +20,7 @@
 #include <iostream>
 #include <sstream>
 
+
 namespace h2o {
 
 std::string ensure_trailing_slash(const std::string &str) {

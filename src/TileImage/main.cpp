@@ -27,11 +27,11 @@ public:
 
 protected:
     cv::Mat process_image(const Photo &camera) const;
-    // Í³¼ÆËùÓĞÓ°ÏñµÄÆ½¾ù´óĞ¡£¬È»ºó¼ÙÉèÒ»¸öÏß³Ì´¦ÀíµÃĞèÒªËÄ±¶Ó°Ïñ´óĞ¡£¬¼ÆËãÏß³ÌÊıÄ¿
+    // ç»Ÿè®¡æ‰€æœ‰å½±åƒçš„å¹³å‡å¤§å°ï¼Œç„¶åå‡è®¾ä¸€ä¸ªçº¿ç¨‹å¤„ç†å¾—éœ€è¦å››å€å½±åƒå¤§å°ï¼Œè®¡ç®—çº¿ç¨‹æ•°ç›®
     int compute_num_threds();
 
 public:
-    // Ó°ÏñÊä³öÂ·¾¶
+    // å½±åƒè¾“å‡ºè·¯å¾„
     std::string folder_;
 
     Block block_;
@@ -131,7 +131,7 @@ void TileImageWorker::run() {
 }
 
 cv::Mat TileImageWorker::process_image(const Photo &photo) const {
-    // ÅĞ¶Ï frustum ºÍ bbox µÄÏà½»¹ØÏµ
+    // åˆ¤æ–­ frustum å’Œ bbox çš„ç›¸äº¤å…³ç³»
     cv::Mat image;
     int orientation;
     std::vector<char> buffer;
@@ -205,12 +205,15 @@ int TileImageWorker::compute_num_threds() {
     cols /= block_.photos.size();
 
     // Assume that the processed image should have 3 times of the image size
+    int num_max_threads = Eigen::nbThreads();
+    int num_threads = num_max_threads;
+#ifdef _WIN32
     double mb_per_threads = rows * cols * 3 * 3.0 / 1024.0 / 1024.0;
     double mb_remaining = get_system_memory();
 
-    int num_threads = mb_remaining / mb_per_threads;
-    int num_max_threads = Eigen::nbThreads();
+    num_threads = mb_remaining / mb_per_threads;
     num_threads = std::min(num_threads, num_max_threads);
+#endif
     return std::max(num_threads, 1);
 }
 } // namespace h2o

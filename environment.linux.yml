@@ -1,0 +1,49 @@
+channels:
+  - saedrna
+  - conda-forge
+  - intel
+  - defaults
+
+dependencies:
+  - alembic
+  - armadillo
+  - assimp
+  - blas * openblas
+  - boost-cpp
+  - catch2
+  - cereal
+  - ceres-solver
+  - cgal-cpp
+  - cmake
+  - eigen 3.3.7
+  - geographiclib
+  - gflags
+  - glew
+  - glfw
+  - glog
+  - ipp-include
+  - ipp-static
+  - laszip
+  - libgdal
+  - libtiff
+  - ninja
+  - openblas
+  - opencv
+  - proj
+  - qt
+  - suitesparse
+  - tbb
+  - openscenegraph
+  - gcc_linux-64                  # [linux]
+  - gxx_linux-64                  # [linux]
+  - ocl-icd                       # [linux]
+  - libselinux-cos6-x86_64        # [linux]
+  - libx11-cos6-x86_64            # [linux]
+  - libxau-cos6-x86_64            # [linux]
+  - libxcb-cos6-x86_64            # [linux]
+  - libxdamage-cos6-x86_64        # [linux]
+  - libxext-cos6-x86_64           # [linux]
+  - libxfixes-cos6-x86_64         # [linux]
+  - libxxf86vm-cos6-x86_64        # [linux]
+  - mesa-dri-drivers-cos6-x86_64  # [linux]
+  - mesa-libgl-devel-cos6-x86_64  # [linux]

@@ -10,7 +10,6 @@
 
 #include <cstdarg>
 #include <cstdio>
-#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -19,6 +18,10 @@
 #include <QString>
 #include <QStringList>
 #include <QTextCodec>
+
+#ifdef MSC_VER_
+#include <filesystem>
+#endif
 
 namespace h2o {
 namespace {

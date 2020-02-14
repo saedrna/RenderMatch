@@ -91,8 +91,8 @@ find_package(Qt5 REQUIRED
                         Gui
                         Widgets
                         LinguistTools
-                        Network
-                        WinExtras)
+                        Network)
+
 include(Qt5LinguistToolsMacrosNoInclude) # 添加创建翻译文件的函数
 
 # OpenCV_LIBS
@@ -113,10 +113,10 @@ find_package(CGAL REQUIRED)
 add_definitions(-DCGAL_HEADER_ONLY)
 
 # Boost_LIBRARIES
-set(Boost_USE_STATIC_LIBS ON FORCE)
+# set(Boost_USE_STATIC_LIBS ON FORCE)
 find_package(Boost REQUIRED filesystem locale)
 set(Boost_LIBRARIES Boost::filesystem Boost::locale)
-add_definitions(-DBOOST_ALL_NO_LIB=1)
+# add_definitions(-DBOOST_ALL_NO_LIB=1)
 
 # GDAL_LIBRARY
 find_package(GDAL REQUIRED)
@@ -131,7 +131,7 @@ find_package(Ceres REQUIRED)
 find_package(IPP REQUIRED)
 
 # CAPSTONE::CAPSTONE
-find_package(CAPSTONE REQUIRED)
+# find_package(CAPSTONE REQUIRED)
 
 # OPENSCENEGRAPH_LIBRARIES OPENSCENEGRAPH_INCLUDE_DIRS
 find_package(OpenSceneGraph REQUIRED osg osgDB osgViewer osgGA osgUtil)
@@ -143,10 +143,10 @@ find_package(TIFF REQUIRED)
 # OpenMVG::openMVG_(modules) find_package(OpenMVG REQUIRED)
 
 # Geogram::Geogram
-find_package(Geogram REQUIRED)
+# find_package(Geogram REQUIRED)
 
 # Embree3::Embree3
-find_package(Embree3 REQUIRED)
+# find_package(Embree3 REQUIRED)
 
 find_package(TBB REQUIRED)
 
@@ -164,7 +164,7 @@ find_package(OpenGL REQUIRED)
 # endif(H2O_BUILD_OSALS)
 
 # 把一些库的RelWithDebInfo Map 到 Release
-set(MAP_LIBRARIES ${OpenCV_LIBS} glog::glog ceres CAPSTONE::CAPSTONE)
+set(MAP_LIBRARIES ${OpenCV_LIBS} glog::glog ceres)
 # if(H2O_BUILD_OSALS) list(APPEND MAP_LIBRARIES pdal_util pdalcpp)
 # endif(H2O_BUILD_OSALS)
 

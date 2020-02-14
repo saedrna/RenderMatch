@@ -5,5 +5,7 @@ target_link_libraries(h2o_match
                       PRIVATE siftgpu
                               fastann
                               acransac
-                              Winmm
                               ceres)
+if(MSVC)
+target_link_libraries(h2o_match PRIVATE Winmm)
+endif(MSVC) 

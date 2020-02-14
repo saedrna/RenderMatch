@@ -92,7 +92,7 @@ void UndistortImageWorker::run() {
 }
 
 cv::Mat UndistortImageWorker::process_image(const Photo &photo) {
-    // ÅÐ¶Ï frustum ºÍ bbox µÄÏà½»¹ØÏµ
+    // åˆ¤æ–­ frustum å’Œ bbox çš„ç›¸äº¤å…³ç³»
     cv::Mat image;
     int orientation;
     std::vector<char> buffer;
@@ -158,12 +158,16 @@ int UndistortImageWorker::compute_num_threads() {
     rows /= block_.groups.size();
     cols /= block_.groups.size();
 
+    int num_max_threads = Eigen::nbThreads();
+    int num_threads = num_max_threads;
+#ifdef _WIN32
     double mb_per_threads = rows * cols * 3 * 3.0 / 1024.0 / 1024.0;
     double mb_remaining = get_system_memory();
 
-    int num_threads = mb_remaining / mb_per_threads;
-    int num_max_threads = Eigen::nbThreads();
+    num_threads = mb_remaining / mb_per_threads;
     num_threads = std::min(num_threads, num_max_threads);
+#endif
+
     return std::max(num_threads, 1);
 }
 
