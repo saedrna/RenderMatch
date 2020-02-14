@@ -19,7 +19,7 @@ find_path(IPP_INCLUDE_DIR ipp.h
 mark_as_advanced("${IPP_INCLUDE_DIR}")
 
 # Find libraries
-set(IPP_COMPONENTS CORE I S)
+set(IPP_COMPONENTS I S CORE)
 
 if(WIN32)
   set(CMAKE_FIND_LIBRARY_SUFFIXES .lib)
