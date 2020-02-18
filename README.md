@@ -47,7 +47,12 @@ RenderMeshMatch -a ./AerialTiled/Aerial.json -g Ground.xml -m model.osgb -c conf
 
 ## DATASET
 
-Preparing...
+We release all the images, initial AT (Aerial Triangulation) Files and the Tiled 3D models.
+
+- Dortmund (3.1 GB): [Google Drive](https://drive.google.com/file/d/1xKHugRam0BDPZwoQMKwJExWzbRQLF9IP/view?usp=sharing), [BaiduYun Code: 7n58](https://pan.baidu.com/s/1b9HbnK5-_J5ei7GleWhiXQ)
+- SWJTU-BLD (2.7 GB): [Google Drive](https://drive.google.com/open?id=1KUIpckI9sTG_5RlUN64OnUS8Cq1HA3dK), [BaiduYun Code: vgj5](https://pan.baidu.com/s/1eLe8xb4nHwXteaOGbTKqww)
+- SWJTU-LIB (2.0 GB): [Google Drive](https://drive.google.com/open?id=1gNDDLmTmdLfO699YUAe0BVkqdlYV3W5-), [BaiduYun Code: aiwa](https://pan.baidu.com/s/1j6GcRz8bC8ZlFipb60Qc6Q)
+- SWJTU-RES (2.2 GB): [Google Drive](https://drive.google.com/open?id=1HH7M3qqwNhM-Ohhr8l37apXwYA8IpfkQ), [BaiduYun Code: bvje](https://pan.baidu.com/s/1dc7gbIdEBBegi8vq_X4ZZA)
 
 ## TODO List
 
@@ -55,3 +60,8 @@ There are several differences for the code and the paper.
 
 - The normal is not implemented, because this requires a lot of tricks in the graphics pipeline and pre-processing of the models in tiled format.
 - The occlusion detection is currently not ported.
+
+## Licenses
+
+- Data: [CC-BY-NC](https://creativecommons.org/licenses/) (Except for the images and derivatives of the Dortmund Datasets)
+- Code: [MIT](https://opensource.org/licenses/MIT)
