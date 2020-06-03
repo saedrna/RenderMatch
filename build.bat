@@ -9,11 +9,7 @@ set UNIX_LIBRARY_LIB=%LIBRARY_LIB:\=/%
 set UNIX_SP_DIR=%SP_DIR:\=/%
 set UNIX_SRC_DIR=%SRC_DIR:\=/%
 
-pushd %VS2017INSTALLDIR%
-call VC\Auxiliary\Build\vcvars64.bat
-popd
-
-cmake -G "Visual Studio 15 2017" -A "x64" -T "host=x64" ^
+cmake -G "Visual Studio 16 2019" -A "x64" -T "host=x64" ^
     -DCMAKE_TOOLCHAIN_FILE=%UNIX_PREFIX%/h2o.cmake ^
     -DCMAKE_BUILD_TYPE=Release ^
     -DCMAKE_INSTALL_PREFIX=./install ^

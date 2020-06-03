@@ -68,8 +68,8 @@ bool line_intersection(cv::DMatch match1, cv::DMatch match2, std::vector<cv::Key
 }
 
 std::vector<cv::DMatch> SiftMatcher::match_proposed(const std::vector<cv::KeyPoint> &qkeys, const cv::Mat &qdesc,
-                                                    std::vector<cv::KeyPoint> keys_ground,
-                                                    std::vector<cv::KeyPoint> keys_render) {
+                                                    const std::vector<cv::KeyPoint>& keys_ground,
+                                                    const std::vector<cv::KeyPoint>& keys_render) {
 
     std::vector<cv::DMatch> lenMatches, matchesOut;
     CHECK(qkeys.size() == qdesc.rows);
@@ -99,8 +99,8 @@ std::vector<cv::DMatch> SiftMatcher::match_proposed(const std::vector<cv::KeyPoi
             auto match = matches[i];
             auto key_ground = keys_ground.at(match.trainIdx);
             auto key_render = keys_render.at(match.queryIdx);
-            float keyDist = std::sqrt(std::powf((key_ground.pt.x - key_render.pt.x), 2) +
-                                      std::powf((key_ground.pt.y - key_render.pt.y), 2));
+            float keyDist = std::sqrt(std::pow((key_ground.pt.x - key_render.pt.x), 2) +
+                                      std::pow((key_ground.pt.y - key_render.pt.y), 2));
             distance.push_back(keyDist);
         }
 
@@ -183,7 +183,11 @@ std::vector<cv::DMatch> SiftMatcher::match_proposed(const std::vector<cv::KeyPoi
                 orients[i] += (x2 - x1) * (x4 - x3) + (y2 - y1) * (y4 - y3); //取邻近的5对匹配对算与主方向的偏差值
             }
         }
-        data.free(), indices.free(), keyDists.free();
+
+        delete[] data.data;
+        delete[] indices.data;
+        delete[] keyDists.data;
+        //data.free(), indices.free(), keyDists.free();
 
         for (int i = 0; i < matches.size(); i++) {
             if (orients[i] > 0) {

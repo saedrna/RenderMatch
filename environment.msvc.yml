@@ -1,0 +1,45 @@
+channels:
+  - conda-forge
+  - intel
+  - saedrna
+  - defaults
+
+dependencies:
+  - assimp
+  - boost-cpp
+  - blas[openblas]
+  - capstone
+  - catch2
+  - cereal
+  - ceres-solver
+  - cgal-cpp
+  - cmake
+  - eigen
+  - embree3
+  - entwine
+  - geogram
+  - geographiclib 1.50 ha925a31_1000
+  - gflags
+  - glew
+  - glfw
+  - glog
+  - ipp-include
+  - ipp-static
+  - khronos-opencl-icd-loader
+  - laszip
+  - libgdal
+  - libblas
+  - libcblas
+  - liblapacke
+  - libtiff
+  - ninja
+  - opencv
+  - openscenegraph
+  - pcl
+  - pdal
+  - proj
+  - qt
+  - suitesparse
+  - tbb
+  - tbb-devel
+  - xerces-c

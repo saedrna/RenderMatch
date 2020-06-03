@@ -8,15 +8,22 @@
 #include <match/lsm.h>
 #include <match/sift_matcher.h>
 
+#include <opencv2/calib3d.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgcodecs.hpp>
-#include <opencv2/calib3d.hpp>
 
 #include <Eigen/Jacobi>
 #include <fstream>
 #include <istream>
 #include <nlohmann/json.hpp>
+#include <random>
+
+#include <rapidxml/rapidxml.hpp>
+#include <rapidxml/rapidxml_print.hpp>
+
+#include <QFile>
+#include <QTextStream>
 
 RenderMeshMatchConfig load_config(const std::string &path) {
     std::ifstream ifile(path);
@@ -30,6 +37,7 @@ RenderMeshMatchConfig load_config(const std::string &path) {
     config.ncc_threshold = j["NccSearch"];
     config.ncc_threshold = j["NccThreshold"];
     config.use_lsm = j["UseLsm"];
+    config.num_propagation = j["NumPropagation"];
     return config;
 }
 
@@ -56,36 +64,278 @@ void RenderMatcher::set_ogl_matrices(const Matrix4f &view, const MatrixXf &proj)
     mvp_inverse_ = (proj * view).inverse();
 }
 
-void RenderMatcher::save_match(RenderMatchResults matches_results) {
-    std::ofstream ofile("match_results.txt");
-    ofile << "RenderMeshMatch Results"
-          << "\n";
-    ofile << "ground_id"
-          << "  "
-          << "ground_x"
-          << "  "
-          << "ground_y"
-          << "  "
-          << "aerial_id"
-          << "  "
-          << "aerial_x"
-          << "  "
-          << "aerial_y"
-          << "\n";
-    for (int i = 0; i < matches_results.size(); i++) {
-        for (int j = 0; j < matches_results[i].iid_aerial.size(); j++) {
-            ofile << "  " << matches_results[i].iid_ground << "       ";
-            ofile << matches_results[i].pt_ground[0] << "   ";
-            ofile << matches_results[i].pt_ground[1] << "      ";
+void RenderMatcher::save_block(const RenderMatchResults &matches, const std::string &block_merged,
+                               const std::string &ofile) {
+    h2o::Block merged = load_block_xml(block_merged);
 
-            ofile << matches_results[i].iid_aerial[j] << "      ";
-            ofile << matches_results[i].pt_aerial[j][0] << "   ";
-            ofile << matches_results[i].pt_aerial[j][1];
+    auto get_name = [](const std::string &path) {
+        std::string name = path;
+        name = get_filename_noext(name);
+        name = string_to_lower(name);
+        return name;
+    };
 
-            ofile << "\n";
+    // name of image -> id in merged block, assume the name of image is different
+    std::map<std::string, uint32_t> name_to_idx;
+    std::map<std::string, std::string> name_to_path;
+
+    for (const auto &pair : block_aerial_.photos) {
+        std::string name = get_name(pair.second.path);
+
+        uint32_t idx = INVALID_INDEX;
+        std::string path;
+        // search merged block
+        for (const auto &pair2 : merged.photos) {
+            std::string name2 = get_name(pair2.second.path);
+
+            if (name == name2) {
+                idx = pair2.second.id;
+                path = pair2.second.path;
+                break;
+            }
         }
+
+        name_to_idx.emplace(name, idx);
+        name_to_path.emplace(name, path);
     }
-    ofile.close();
+
+    for (const auto &pair : block_ground_.photos) {
+        std::string name = get_name(pair.second.path);
+
+        uint32_t idx = INVALID_INDEX;
+        std::string path;
+        // search merged block
+        for (const auto &pair2 : merged.photos) {
+            std::string name2 = get_name(pair2.second.path);
+
+            if (name == name2) {
+                idx = pair2.second.id;
+                path = pair2.second.path;
+                break;
+            }
+        }
+
+        name_to_idx.emplace(name, idx);
+        name_to_path.emplace(name, path);
+    }
+
+    // export all survey data
+    using document = rapidxml::xml_document<>;
+    using node = rapidxml::xml_node<>;
+    document doc;
+    node *declaration = doc.allocate_node(rapidxml::node_declaration);
+    doc.append_node(declaration);
+    declaration->append_attribute(doc.allocate_attribute("version", "1.0"));
+    declaration->append_attribute(doc.allocate_attribute("encoding", "utf-8"));
+
+    node *survey_data = doc.allocate_node(rapidxml::node_element, "SurveysData");
+    doc.append_node(survey_data);
+    node *tie_points = doc.allocate_node(rapidxml::node_element, "TiePoints");
+    survey_data->append_node(tie_points);
+
+    uint32_t id = 0;
+    for (const auto &match : matches) {
+        node *tie_point = doc.allocate_node(rapidxml::node_element, "TiePoint");
+        tie_points->append_node(tie_point);
+
+        node *nid = doc.allocate_node(rapidxml::node_element, "Id", doc.allocate_string(std::to_string(id).c_str()));
+        tie_point->append_node(nid);
+
+        node *nname =
+            doc.allocate_node(rapidxml::node_element, "Name", doc.allocate_string(std::to_string(id).c_str()));
+        tie_point->append_node(nname);
+
+        node *ntype = doc.allocate_node(rapidxml::node_element, "Type", "User");
+        tie_point->append_node(ntype);
+
+        auto add_measurment = [&doc, tie_point, &name_to_idx, &name_to_path](const std::string &name,
+                                                                             const Vector2f &point) {
+            uint32_t photoid = name_to_idx.at(name);
+            std::string path = name_to_path.at(name);
+
+            if (photoid == INVALID_INDEX) {
+                return;
+            }
+
+            node *nmeasure = doc.allocate_node(rapidxml::node_element, "Measurement");
+            tie_point->append_node(nmeasure);
+
+            node *nphotoid = doc.allocate_node(rapidxml::node_element, "PhotoId",
+                                               doc.allocate_string(std::to_string(photoid).c_str()));
+            nmeasure->append_node(nphotoid);
+
+            node *nimagepath =
+                doc.allocate_node(rapidxml::node_element, "ImagePath", doc.allocate_string(path.c_str()));
+            nmeasure->append_node(nimagepath);
+
+            node *nx =
+                doc.allocate_node(rapidxml::node_element, "x", doc.allocate_string(std::to_string(point.x()).c_str()));
+            nmeasure->append_node(nx);
+
+            node *ny =
+                doc.allocate_node(rapidxml::node_element, "y", doc.allocate_string(std::to_string(point.y()).c_str()));
+            nmeasure->append_node(ny);
+        };
+
+        add_measurment(get_name(block_ground_.photos.at(match.iid_ground).path), match.pt_ground);
+        for (int i = 0; i < match.iid_grounds.size(); ++i) {
+            uint32_t iid = match.iid_grounds.at(i);
+            Vector2f pt = match.pt_grounds.at(i);
+            add_measurment(get_name(block_ground_.photos.at(iid).path), pt);
+        }
+        for (int i = 0; i < match.iid_aerials.size(); ++i) {
+            uint32_t iid = match.iid_aerials.at(i);
+            Vector2f pt = match.pt_aerials.at(i);
+            add_measurment(get_name(block_aerial_.photos.at(iid).path), pt);
+        }
+
+        id++;
+    }
+
+    std::ofstream output(ofile);
+    output << doc;
+}
+
+void RenderMatcher::merge_block(const RenderMatchResults &matches, const std::string &block_merged,
+                                const std::string &ofile) {
+    h2o::Block merged = load_block_xml(block_merged);
+
+    auto get_name = [](const std::string &path) {
+        std::string name = path;
+        name = get_filename_noext(name);
+        name = string_to_lower(name);
+        return name;
+    };
+
+    // name of image -> id in merged block, assume the name of image is different
+    std::map<std::string, uint32_t> name_to_idx;
+    std::map<std::string, std::string> name_to_path;
+
+    for (const auto &pair : block_aerial_.photos) {
+        std::string name = get_name(pair.second.path);
+
+        uint32_t idx = INVALID_INDEX;
+        std::string path;
+        // search merged block
+        for (const auto &pair2 : merged.photos) {
+            std::string name2 = get_name(pair2.second.path);
+
+            if (name == name2) {
+                idx = pair2.second.id;
+                path = pair2.second.path;
+                break;
+            }
+        }
+
+        name_to_idx.emplace(name, idx);
+        name_to_path.emplace(name, path);
+    }
+
+    for (const auto &pair : block_ground_.photos) {
+        std::string name = get_name(pair.second.path);
+
+        uint32_t idx = INVALID_INDEX;
+        std::string path;
+        // search merged block
+        for (const auto &pair2 : merged.photos) {
+            std::string name2 = get_name(pair2.second.path);
+
+            if (name == name2) {
+                idx = pair2.second.id;
+                path = pair2.second.path;
+                break;
+            }
+        }
+
+        name_to_idx.emplace(name, idx);
+        name_to_path.emplace(name, path);
+    }
+
+    // export all survey data
+    using document = rapidxml::xml_document<>;
+    using node = rapidxml::xml_node<>;
+    document doc;
+    std::ifstream fmergeed(block_merged);
+    std::vector<char> buffer((std::istreambuf_iterator<char>(fmergeed)), std::istreambuf_iterator<char>());
+    buffer.push_back('\0');
+    doc.parse<0>(buffer.data());
+
+    node *tie_points = doc.first_node("BlocksExchange")->first_node("Block")->first_node("TiePoints");
+
+    uint32_t id = 0;
+    for (const auto &match : matches) {
+        node *tie_point = doc.allocate_node(rapidxml::node_element, "TiePoint");
+        tie_points->append_node(tie_point);
+
+        // node *nid = doc.allocate_node(rapidxml::node_element, "Id", doc.allocate_string(std::to_string(id).c_str()));
+        // tie_point->append_node(nid);
+
+        // node *nname =
+        //    doc.allocate_node(rapidxml::node_element, "Name", doc.allocate_string(std::to_string(id).c_str()));
+        // tie_point->append_node(nname);
+
+        // node *ntype = doc.allocate_node(rapidxml::node_element, "Type", "User");
+        // tie_point->append_node(ntype);
+
+        node *nposition = doc.allocate_node(rapidxml::node_element, "Position");
+        tie_point->append_node(nposition);
+
+        node *nx =
+            doc.allocate_node(rapidxml::node_element, "x", doc.allocate_string(std::to_string(match.xyz.x()).c_str()));
+        node *ny =
+            doc.allocate_node(rapidxml::node_element, "y", doc.allocate_string(std::to_string(match.xyz.y()).c_str()));
+        node *nz =
+            doc.allocate_node(rapidxml::node_element, "z", doc.allocate_string(std::to_string(match.xyz.z()).c_str()));
+        nposition->append_node(nx);
+        nposition->append_node(ny);
+        nposition->append_node(nz);
+
+        auto add_measurment = [&doc, tie_point, &name_to_idx, &name_to_path](const std::string &name,
+                                                                             const Vector2f &point) {
+            uint32_t photoid = name_to_idx.at(name);
+            std::string path = name_to_path.at(name);
+
+            if (photoid == INVALID_INDEX) {
+                return;
+            }
+
+            node *nmeasure = doc.allocate_node(rapidxml::node_element, "Measurement");
+            tie_point->append_node(nmeasure);
+
+            node *nphotoid = doc.allocate_node(rapidxml::node_element, "PhotoId",
+                                               doc.allocate_string(std::to_string(photoid).c_str()));
+            nmeasure->append_node(nphotoid);
+
+            node *nimagepath =
+                doc.allocate_node(rapidxml::node_element, "ImagePath", doc.allocate_string(path.c_str()));
+            nmeasure->append_node(nimagepath);
+
+            node *nx =
+                doc.allocate_node(rapidxml::node_element, "x", doc.allocate_string(std::to_string(point.x()).c_str()));
+            nmeasure->append_node(nx);
+
+            node *ny =
+                doc.allocate_node(rapidxml::node_element, "y", doc.allocate_string(std::to_string(point.y()).c_str()));
+            nmeasure->append_node(ny);
+        };
+
+        add_measurment(get_name(block_ground_.photos.at(match.iid_ground).path), match.pt_ground);
+        for (int i = 0; i < match.iid_grounds.size(); ++i) {
+            uint32_t iid = match.iid_grounds.at(i);
+            Vector2f pt = match.pt_grounds.at(i);
+            add_measurment(get_name(block_ground_.photos.at(iid).path), pt);
+        }
+        for (int i = 0; i < match.iid_aerials.size(); ++i) {
+            uint32_t iid = match.iid_aerials.at(i);
+            Vector2f pt = match.pt_aerials.at(i);
+            add_measurment(get_name(block_aerial_.photos.at(iid).path), pt);
+        }
+
+        id++;
+    }
+
+    std::ofstream output(ofile);
+    output << doc;
 }
 
 RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, const cv::Mat &mat_dep) {
@@ -133,9 +383,9 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
     SiftMatcher sift_matcher;
     sift_matcher.set_match_param(sift_param);
     sift_matcher.set_train_data(keys_ground, desc_ground);
-    //std::vector<cv::DMatch> matches = sift_matcher.match(keys_render, desc_render);
+    // std::vector<cv::DMatch> matches = sift_matcher.match(keys_render, desc_render);
 
-	// local geometry constraints for outlier removal
+    // local geometry constraints for outlier removal
     std::vector<cv::DMatch> matches = sift_matcher.match_proposed(keys_render, desc_render, keys_ground, keys_render);
 
     // too few matches
@@ -143,8 +393,15 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
         return RenderMatchResults();
     }
 
-    // for each match expand to aerial views with patch match
+    // reserve only some matches for propagation
+    if (matches.size() > param_.num_propagation) {
+        std::shuffle(begin(matches), end(matches), std::default_random_engine());
+        matches.resize(param_.num_propagation);
+    }
+
+    // for each match expand to aerial/ground views with patch match
     RenderMatchResults results;
+
     for (const auto &match : matches) {
         auto key_ground = keys_ground.at(match.trainIdx);
         auto key_render = keys_render.at(match.queryIdx);
@@ -176,54 +433,70 @@ RenderMatchResults RenderMatcher::match(uint32_t iid, const cv::Mat &mat_rgb, co
         result.iid_ground = iid;
         result.pt_ground = Vector2f(key_ground.pt.x, key_ground.pt.y);
 
-        // search visible aerial images
-        std::vector<uint32_t> iids_aerial = search_visible_aerial_images(corners_ren, normal_ren);
-        if (iids_aerial.empty()) {
-            continue;
-        }
-
-        std::vector<cv::Mat> mats_patch;
-        std::vector<Matrix3f> Hs_pat_aer;
-        std::vector<uint32_t> iids_aerial_valid;
-        for (uint32_t iid_aerial : iids_aerial) {
-            cv::Mat mat_pat;
-            Matrix3f H_pat_aer;
-            std::tie(mat_pat, H_pat_aer) = get_patch_on_aerial_image(iid, iid_aerial, corners_ren, normal_ren);
-            if (mat_pat.empty()) {
-                continue;
+        const auto &propagate = [&](bool to_aerial) {
+            // search visible aerial images
+            std::vector<uint32_t> iids_aerial = search_visible_aerial_images(corners_ren, normal_ren, to_aerial);
+            if (iids_aerial.empty()) {
+                return;
             }
 
-            // do template match
-            cv::Mat ncc;
-            cv::matchTemplate(mat_pat, mat_ground_template, ncc, cv::TM_CCOEFF_NORMED);
-            double ncc_max;
-            cv::Point pos;
-            cv::minMaxLoc(ncc, nullptr, &ncc_max, nullptr, &pos);
+            for (uint32_t iid_aerial : iids_aerial) {
 
-            if (ncc_max < param_.ncc_threshold) {
-                continue;
-            }
-            int ncc_size = mat_pat.rows - mat_ground_template.rows + 1;
-            std::vector<double> affine = {
-                1.0, 0.0, (double)pos.x - ncc_size / 2, 0.0, 1.0, (double)pos.y - ncc_size / 2, 1.0, 0.0};
-
-            if (param_.use_lsm) {
-                LSMSummary summary = lsm_match(mat_ground_template, mat_pat, affine);
-                if (!summary.is_converge) {
+                if (iid_aerial == iid && to_aerial == false) {
                     continue;
                 }
+
+                cv::Mat mat_pat;
+                Matrix3f H_pat_aer;
+                std::tie(mat_pat, H_pat_aer) =
+                    get_patch_on_aerial_image(iid, iid_aerial, corners_ren, normal_ren, to_aerial);
+                if (mat_pat.empty()) {
+                    continue;
+                }
+
+                // do template match
+                cv::Mat ncc;
+                cv::matchTemplate(mat_pat, mat_ground_template, ncc, cv::TM_CCOEFF_NORMED);
+                double ncc_max;
+                cv::Point pos;
+                cv::minMaxLoc(ncc, nullptr, &ncc_max, nullptr, &pos);
+
+                if (ncc_max < param_.ncc_threshold) {
+                    continue;
+                }
+                int ncc_size = mat_pat.rows - mat_ground_template.rows + 1;
+                std::vector<double> affine = {
+                    1.0, 0.0, (double)pos.x - ncc_size / 2, 0.0, 1.0, (double)pos.y - ncc_size / 2, 1.0, 0.0};
+
+                if (param_.use_lsm) {
+                    LSMSummary summary = lsm_match(mat_ground_template, mat_pat, affine);
+                    if (!summary.is_converge) {
+                        continue;
+                    }
+                }
+
+                Vector2f point_pat(affine[2] + mat_pat.cols / 2, affine[5] + mat_pat.rows / 2);
+                Vector2f point_aer = (H_pat_aer * point_pat.homogeneous()).hnormalized();
+
+                if (to_aerial) {
+                    result.iid_aerials.push_back(iid_aerial);
+                    result.pt_aerials.push_back(point_aer);
+                } else {
+                    result.iid_grounds.push_back(iid_aerial);
+                    result.pt_grounds.push_back(point_aer);
+                }
             }
+        };
 
-            Vector2f point_pat(affine[2] + mat_pat.cols / 2, affine[5] + mat_pat.rows / 2);
-            Vector2f point_aer = (H_pat_aer * point_pat.homogeneous()).hnormalized();
-
-            result.iid_aerial.push_back(iid_aerial);
-            result.pt_aerial.push_back(point_aer);
-        }
-
-        if (result.iid_aerial.empty()) {
+        propagate(true);
+        if (result.iid_aerials.empty()) {
             continue;
         }
+        propagate(false);
+        if (result.iid_grounds.empty()) {
+            continue;
+        }
+
         results.push_back(result);
     }
 
@@ -241,13 +514,13 @@ cv::Mat RenderMatcher::draw_matches(uint32_t iid_ground, uint32_t iid_aerial, co
             continue;
         }
 
-        for (int i = 0; i < match.iid_aerial.size(); ++i) {
-            uint32_t iid2 = match.iid_aerial[i];
+        for (int i = 0; i < match.iid_aerials.size(); ++i) {
+            uint32_t iid2 = match.iid_aerials[i];
             if (iid2 != iid_aerial) {
                 continue;
             }
 
-            Vector2f pt_aerial = match.pt_aerial[i];
+            Vector2f pt_aerial = match.pt_aerials[i];
 
             dmatches.push_back(cv::DMatch(pos, pos, 0.0f));
             keys_ground.push_back(cv::KeyPoint(match.pt_ground.x(), match.pt_ground.y(), 32.0f));
@@ -281,9 +554,10 @@ std::tuple<MatrixXf, Vector3f, Vector3f> RenderMatcher::get_patch_on_rendered_im
     int rows = mat_dep.rows;
     int cols = mat_dep.cols;
 
+    // contain in eigen allow overlap
     BoundingBox2i bounds_image;
     bounds_image.extend(Vector2i(0, 0));
-    bounds_image.extend(Vector2i(cols, rows));
+    bounds_image.extend(Vector2i(cols - 1, rows - 1));
     BoundingBox2i bounds_patch;
     bounds_patch.extend(Vector2i(pt.x() - patch_half, pt.y() - patch_half));
     bounds_patch.extend(Vector2i(pt.x() + patch_half + 1, pt.y() + patch_half + 1));
@@ -296,6 +570,7 @@ std::tuple<MatrixXf, Vector3f, Vector3f> RenderMatcher::get_patch_on_rendered_im
     MatrixXf corners(3, 4);
     for (int i = 0; i < 4; ++i) {
         Vector2i corner = bounds_patch.corner(BoundingBox2i::CornerType(i));
+
         float depth = mat_dep.at<float>(corner.y(), corner.x());
         if (std::abs(depth - 1.0) < 1e-4) {
             // invalid depth value
@@ -361,19 +636,21 @@ cv::Mat RenderMatcher::debug_patch_on_render_image(const cv::Mat &mat_rgb, const
 }
 
 std::tuple<cv::Mat, Matrix3f> RenderMatcher::get_patch_on_aerial_image(uint32_t iid_ground, uint32_t iid_aerial,
-                                                                       const MatrixXf &corners,
-                                                                       const Vector3f &normal) {
+                                                                       const MatrixXf &corners, const Vector3f &normal,
+                                                                       bool from_aerial) {
     // the corners corresponding to the 3D points of the four 2d corners of the final warped patch
     // we have four coordinate systems
     // - patch (as pat): the final patch warped to the ground view
     // - rendered image (as ren): assumes to have the no deformation with the patch and corners are input
     // - aerial (as aer): the coordinate of the aerial images
     // - aerial subset (as sub): a subset region, which is loaded and used for warp to the final patch
-    Photo photo_aerial = block_aerial_.photos.at(iid_aerial);
+    const h2o::Block &block = from_aerial ? block_aerial_ : block_ground_;
+    const auto &images = from_aerial ? images_aerial_ : images_ground_;
+
+    Photo photo_aerial = block.photos.at(iid_aerial);
     BoundingBox2i bounds_aer;
     bounds_aer.extend(Vector2i(0, 0));
-    bounds_aer.extend(
-        Vector2i(block_aerial_.groups.at(photo_aerial.cid).width, block_aerial_.groups.at(photo_aerial.cid).height));
+    bounds_aer.extend(Vector2i(block.groups.at(photo_aerial.cid).width, block.groups.at(photo_aerial.cid).height));
 
     // project the four corners to the aerial images
     BoundingBox2i bounds_sub;
@@ -383,7 +660,7 @@ std::tuple<cv::Mat, Matrix3f> RenderMatcher::get_patch_on_aerial_image(uint32_t 
     std::vector<Vector2d> corners_pat(4), corners_aer(4);
     for (int i = 0; i < 4; ++i) {
         Vector3d point = corners.col(i).cast<double>();
-        Vector2d point2d = block_aerial_.project(point, iid_aerial);
+        Vector2d point2d = block.project(point, iid_aerial);
         corners_aer[i] = point2d;
 
         bounds_sub.extend(Vector2i(point2d.x() + 1.5, point2d.y() + 1.5));
@@ -397,7 +674,7 @@ std::tuple<cv::Mat, Matrix3f> RenderMatcher::get_patch_on_aerial_image(uint32_t 
     cv::Mat mat_sub;
     // reads M * sub = aer
     Matrix23d M_sub_aer;
-    std::tie(M_sub_aer, mat_sub) = images_aerial_.at(iid_aerial)->get_patch(bounds_sub, bounds_sub.sizes());
+    std::tie(M_sub_aer, mat_sub) = images.at(iid_aerial)->get_patch(bounds_sub, bounds_sub.sizes());
     if (mat_sub.channels() == 3) {
         cv::cvtColor(mat_sub, mat_sub, cv::COLOR_RGB2GRAY);
     }
@@ -468,19 +745,21 @@ cv::Mat RenderMatcher::get_patch_on_ground_image(uint32_t iid, const Vector2d &p
     return sub_extract;
 }
 
-std::vector<uint32_t> RenderMatcher::search_visible_aerial_images(const MatrixXf &corners, const Vector3f &normal) {
+std::vector<uint32_t> RenderMatcher::search_visible_aerial_images(const MatrixXf &corners, const Vector3f &normal,
+                                                                  bool from_aerial) {
     std::vector<uint32_t> vis_angles;
 
+    const auto &block = from_aerial ? block_aerial_ : block_ground_;
+
     Vector3f center = corners.rowwise().mean();
-
     double threshold = std::cos(param_.angle_difference * DEG2RAD);
-
-    for (const auto &pair : block_aerial_.photos) {
+    for (const auto &pair : block.photos) {
         Vector3f C = pair.second.C.cast<float>();
         Vector3f dir = (C - center).normalized();
         if (normal.dot(dir) < threshold) {
             continue;
         }
+
         vis_angles.push_back(pair.first);
     }
 
@@ -506,4 +785,3 @@ Vector3f RenderMatcher::depth_to_xyz(float depth, const Vector2i &point) {
 
     return coord;
 }
-

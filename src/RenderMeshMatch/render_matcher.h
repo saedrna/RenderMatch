@@ -30,6 +30,9 @@ struct RenderMeshMatchConfig {
 
     // use lsm on the patch
     bool use_lsm = false;
+
+    // how many matches on the rendered images will be used for propagation
+    int num_propagation = 20;
 };
 
 RenderMeshMatchConfig load_config(const std::string &path);
@@ -40,10 +43,18 @@ struct RenderMatchResult {
     uint32_t iid_ground;
     Vector2f pt_ground;
 
-    std::vector<uint32_t> iid_aerial;
-    std::vector<Vector2f> pt_aerial;
+    // propagated to arial views
+    std::vector<uint32_t> iid_aerials;
+    std::vector<Vector2f> pt_aerials;
+
+    // propagated to ground views
+    std::vector<uint32_t> iid_grounds;
+    std::vector<Vector2f> pt_grounds;
 };
 using RenderMatchResults = std::vector<RenderMatchResult>;
+
+void save_matches(const RenderMatchResults &match, const std::string &path);
+RenderMatchResults load_matches(const std::string &path);
 
 class RenderMatcher {
 
@@ -54,7 +65,8 @@ public:
     void set_param(const RenderMeshMatchConfig &param);
     void set_block(const h2o::Block &aerial, const h2o::Block &ground);
     void set_ogl_matrices(const Matrix4f &view, const MatrixXf &proj);
-    void save_match(RenderMatchResults matches_results);
+    void save_block(const RenderMatchResults &matches, const std::string &block_merged, const std::string &ofile);
+    void merge_block(const RenderMatchResults &matches, const std::string &block_merged, const std::string &ofile);
     RenderMatchResults match(uint32_t iid, const cv::Mat &mat_rgb, const cv::Mat &mat_dep);
 
     // debug two match images
@@ -67,18 +79,19 @@ protected:
 
     cv::Mat debug_patch_on_render_image(const cv::Mat &mat_rgb, const Vector2d &point);
 
-    // extract a patch from the aerial image, with a homography matrix to determine the original coordinates
+    // extract a patch from the aerial or ground image, with a homography matrix to determine the original coordinates
     // aerial = H * patch
     std::tuple<cv::Mat, Matrix3f> get_patch_on_aerial_image(uint32_t iid_ground, uint32_t iid_aerial,
-                                                            const MatrixXf &corners, const Vector3f &normal);
+                                                            const MatrixXf &corners, const Vector3f &normal,
+                                                            bool from_aerial = true);
 
     // return a patch on the ground image, which is the template
     // extract a patch from the ground image, assume that the deformation between ground and render image is removed
     // i.e. only translational difference
-
     cv::Mat get_patch_on_ground_image(uint32_t iid, const Vector2d &point);
 
-    std::vector<uint32_t> search_visible_aerial_images(const MatrixXf &corners, const Vector3f &normal);
+    std::vector<uint32_t> search_visible_aerial_images(const MatrixXf &corners, const Vector3f &normal,
+                                                       bool from_aerial = true);
 
     Vector3f depth_to_xyz(float depth, const Vector2i &point);
 

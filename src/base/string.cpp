@@ -19,7 +19,7 @@
 #include <QStringList>
 #include <QTextCodec>
 
-#ifdef MSC_VER_
+#ifdef _MSC_VER
 #include <filesystem>
 #endif
 

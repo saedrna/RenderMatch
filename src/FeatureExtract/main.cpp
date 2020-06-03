@@ -4,6 +4,13 @@
  * Extract SIFT features
  */
 
+#ifdef _MSC_VER
+extern "C" {
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+__declspec(dllexport) int NvOptimusEnablement = 1;
+}
+#endif
+
 #include <ProgressBar.hpp>
 #include <cxxopts.hpp>
 

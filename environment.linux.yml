@@ -1,39 +1,48 @@
 channels:
-  - saedrna
   - conda-forge
   - intel
+  - saedrna
   - defaults
 
 dependencies:
-  - alembic
-  - armadillo
   - assimp
-  - blas * openblas
   - boost-cpp
+  - blas[openblas]
+  - capstone
   - catch2
   - cereal
   - ceres-solver
   - cgal-cpp
   - cmake
-  - eigen 3.3.7
-  - geographiclib
+  - eigen
+  - embree3
+  - entwine
+  - geogram
+  - geographiclib 1.50 he1b5a44_1000
   - gflags
   - glew
   - glfw
   - glog
   - ipp-include
   - ipp-static
+  - ocl-icd
   - laszip
   - libgdal
+  - libblas
+  - libcblas
+  - liblapacke
   - libtiff
   - ninja
-  - openblas
   - opencv
+  - openscenegraph
+  - pcl
+  - pdal
   - proj
   - qt
   - suitesparse
   - tbb
-  - openscenegraph
+  - tbb-devel
+  - xerces-c
   - gcc_linux-64                  # [linux]
   - gxx_linux-64                  # [linux]
   - ocl-icd                       # [linux]
