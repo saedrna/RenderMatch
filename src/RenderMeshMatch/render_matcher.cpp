@@ -34,7 +34,7 @@ RenderMeshMatchConfig load_config(const std::string &path) {
     config.use_occlusion = j["UseOcclusion"];
     config.angle_difference = j["AngleDifference"];
     config.ncc_window = j["NccWindow"];
-    config.ncc_threshold = j["NccSearch"];
+    config.ncc_search = j["NccSearch"];
     config.ncc_threshold = j["NccThreshold"];
     config.use_lsm = j["UseLsm"];
     config.num_propagation = j["NumPropagation"];
