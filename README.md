@@ -7,9 +7,9 @@ Implementation of our paper ["Leveraging Photogrammetric Mesh Models for Aerial-
 The code is extracted from our private code repository, currently many libraries are dependent for some legacy issues. To install the dependencies, we provide anaconda environment file. Using the environment file ```environment.Linux.yml``` and ```environment.msvc.yml``` for building with Linux gcc and VS 2017 (we only test it with MSVC 2017), respectively.
 
 The environment is built using these [recipies](https://github.com/saedrna/AnacondaRecipies), and the binaries are deployed in [anaconda](http://anaconda.org/saedrna/).
-
-- Linux: create environment with ```conda env create -n h2o -f environment.Linux.yml``` to create an environment named ```h2o``` (other names are also OK).
-- MSVC 2017: create environment with ```conda env create -n h2o -f environment.msvc.yml```.
+- Please use environment files in my anaconda [recipies](https://github.com/saedrna/AnacondaRecipies)
+- [Deprecated] Linux: create environment with ```conda env create -n h2o -f environment.Linux.yml``` to create an environment named ```h2o``` (other names are also OK).
+- [Deprecated] MSVC 2017: create environment with ```conda env create -n h2o -f environment.msvc.yml```.
 
 - For windows, we also provide a cmake tool chain for easy deployment, run
 
